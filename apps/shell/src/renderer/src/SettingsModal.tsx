@@ -13,19 +13,18 @@ import {
   DEFAULT_MAX_OUTPUT_TOKENS,
   MAX_MAX_OUTPUT_TOKENS,
   MIN_MAX_OUTPUT_TOKENS,
+  OLLAMA_DEFAULT_HOST,
   clampMaxOutputTokens,
 } from '@genoffice/ai-provider/browser'
 import type {
-  AiMediaProviderId,
-  AiMediaProviderMeta,
-  AiMediaSettings,
   AiSearchProviderMeta,
   AiSearchSettings,
   AiSettings,
+  OllamaCatalog,
 } from '@genoffice/ai-provider'
 import { useI18n } from './locale'
 import type { StringKey, TFunc } from './locale'
-import type { AccountStatus, AiCatalogEntry, UiTheme } from '../../shared/home-api'
+import type { UiTheme } from '../../shared/home-api'
 import { ProviderLogo } from './provider-logos'
 import { IntegrationsPane, skillUpdateDue } from './IntegrationsPane'
 import './settings.css'
@@ -138,10 +137,9 @@ function CustomFontSizeInput({
   )
 }
 
-type SectionId = 'account' | 'aiModel' | 'aiMedia' | 'general' | 'integrations' | 'about'
+type SectionId = 'aiModel' | 'aiMedia' | 'general' | 'integrations' | 'about'
 
 const SECTIONS: readonly { id: SectionId; labelKey: StringKey }[] = [
-  { id: 'account', labelKey: 'setSecAccount' },
   { id: 'aiModel', labelKey: 'setSecAiModel' },
   { id: 'aiMedia', labelKey: 'setSecAiMedia' },
   { id: 'general', labelKey: 'setSecGeneral' },
@@ -180,19 +178,6 @@ function SectionIcon({ id }: { id: SectionId }) {
           strokeLinejoin="round"
         />
         <circle cx="10.5" cy="6" r="1.1" fill="currentColor" />
-      </svg>
-    )
-  }
-  if (id === 'account') {
-    return (
-      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-        <circle cx="8" cy="5.2" r="2.9" stroke="currentColor" strokeWidth="1.3" />
-        <path
-          d="M2.7 13.6a5.5 5.5 0 0 1 10.6 0"
-          stroke="currentColor"
-          strokeWidth="1.3"
-          strokeLinecap="round"
-        />
       </svg>
     )
   }
@@ -257,12 +242,19 @@ function Field({
   )
 }
 
-/** AI model pane: provider / model / key / base URL, saved to userData/ai-settings.json */
+/**
+ * AI model pane. There is one provider — a local Ollama daemon — so the pane
+ * is about the daemon, not about choosing a vendor: where it listens, whether
+ * it answers, and which of the models it actually serves to use.
+ *
+ * The model list is never hardcoded. It comes from the daemon each time the
+ * pane opens (and on Refresh), because what is installed is a property of this
+ * machine and changes whenever the user runs `ollama pull`.
+ */
 function AiModelPane({ t }: { t: TFunc }) {
-  const [catalog, setCatalog] = useState<AiCatalogEntry[]>(
-    () => window.aiOffice.getAiProviders?.() ?? [],
-  )
   const [settings, setSettings] = useState<AiSettings | null>(null)
+  const [catalog, setCatalog] = useState<OllamaCatalog | null>(null)
+  const [probing, setProbing] = useState(false)
   const [dirty, setDirty] = useState(false)
   const [saved, setSaved] = useState(false)
   const [testing, setTesting] = useState(false)
@@ -270,55 +262,30 @@ function AiModelPane({ t }: { t: TFunc }) {
   /** free-typed value of the output-cap field; committed (and clamped) on blur */
   const [maxTokensDraft, setMaxTokensDraft] = useState<string | null>(null)
 
-  const refreshCodexModels = useCallback(async (cliPath = '', selectedModel = '') => {
-    if (!window.aiOffice.getCodexModels) return
-    const live = await window.aiOffice.getCodexModels(cliPath)
-    setCatalog((current) =>
-      current.map((entry) => {
-        if (entry.id !== 'codex') return entry
-        const models =
-          selectedModel && !live.models.includes(selectedModel)
-            ? [selectedModel, ...live.models]
-            : live.models
-        return { ...entry, models, defaultModel: live.defaultModel }
-      }),
-    )
+  const probe = useCallback(async () => {
+    setProbing(true)
+    try {
+      setCatalog((await window.aiOffice.ollamaStatus?.()) ?? null)
+    } finally {
+      setProbing(false)
+    }
   }, [])
 
   useEffect(() => {
     let alive = true
     void window.aiOffice.getAiSettings?.().then((s) => {
-      if (!alive || !s) return
-      // The switch is disabled with genspark, so never present it stranded
-      // off. Display-only: s.provider may be the activeProvider fallback for
-      // a half-configured BYOK selection, so writing anything back here would
-      // clobber the stored choice — the main process heals a genuine legacy
-      // genspark+off file itself, judged on the raw stored provider.
-      if (s.provider === 'genspark' && s.gskToolsEnabled === false) {
-        s = { ...s, gskToolsEnabled: true }
-      }
-      setSettings(s)
-      const codex = s.providers.codex
-      if (codex) {
-        void refreshCodexModels(codex.cliPath ?? '', codex.model).catch(() => undefined)
-      }
+      if (alive && s) setSettings(s)
     })
+    void probe()
     return () => {
       alive = false
     }
-  }, [refreshCodexModels])
+  }, [probe])
 
   if (!settings) return null
-  const provider = settings.provider
-  const meta = catalog.find((c) => c.id === provider)
-  const config = settings.providers[provider] ?? {
-    apiKey: '',
-    model: meta?.defaultModel ?? '',
-    baseUrl: undefined,
-    cliPath: undefined,
-  }
-  const isGenspark = provider === 'genspark'
-  const isCodex = provider === 'codex'
+  const config = settings.providers.ollama
+  const installed = catalog?.models ?? []
+  const selected = installed.find((m) => m.name === config.model)
 
   const touch = () => {
     setDirty(true)
@@ -326,10 +293,7 @@ function AiModelPane({ t }: { t: TFunc }) {
     setTestResult(null)
   }
   const updateConfig = (patch: Partial<typeof config>) => {
-    setSettings({
-      ...settings,
-      providers: { ...settings.providers, [provider]: { ...config, ...patch } },
-    })
+    setSettings({ ...settings, providers: { ollama: { ...config, ...patch } } })
     touch()
   }
   /** Commit the output-cap input: clamp what was typed and drop a no-op edit */
@@ -339,15 +303,6 @@ function AiModelPane({ t }: { t: TFunc }) {
     const next = clampMaxOutputTokens(Number.parseInt(maxTokensDraft, 10))
     if (next === (settings.maxOutputTokens ?? DEFAULT_MAX_OUTPUT_TOKENS)) return
     setSettings({ ...settings, maxOutputTokens: next })
-    touch()
-  }
-  const selectProvider = (id: AiSettings['provider']) => {
-    // cloud tools cannot be off with genspark (chat runs through gsk anyway)
-    setSettings({
-      ...settings,
-      provider: id,
-      ...(id === 'genspark' ? { gskToolsEnabled: true } : {}),
-    })
     touch()
   }
   const save = () => {
@@ -366,16 +321,23 @@ function AiModelPane({ t }: { t: TFunc }) {
     setTestResult(null)
     window.aiOffice
       .testAiSettings?.(settings)
-      .then((r) => {
-        setTestResult(r ?? { ok: false })
-        if (r?.ok && isCodex) {
-          void refreshCodexModels(config.cliPath ?? '', config.model).catch(() => undefined)
-        }
-      })
+      .then((r) => setTestResult(r ?? { ok: false }))
       .catch((error) =>
         setTestResult({ ok: false, error: error instanceof Error ? error.message : String(error) }),
       )
       .finally(() => setTesting(false))
+  }
+
+  /** "9.7B · Q4_K_M · vision, tools" — what the daemon reports, so the pick is informed */
+  const modelDetail = (name: string): string => {
+    const m = installed.find((entry) => entry.name === name)
+    if (!m) return name
+    const parts = [m.parameterSize, m.quantization].filter(Boolean)
+    const caps = [m.vision && 'vision', m.tools && 'tools', m.thinking && 'thinking'].filter(
+      Boolean,
+    ) as string[]
+    if (caps.length) parts.push(caps.join(', '))
+    return parts.length ? `${name} — ${parts.join(' · ')}` : name
   }
 
   return (
@@ -383,122 +345,96 @@ function AiModelPane({ t }: { t: TFunc }) {
       <h3 className="set-pane-title">{t('setSecAiModel')}</h3>
       <div className="set-field">
         <div className="set-field-text">
-          <label className="set-field-label">{t('setAiProvider')}</label>
+          <div className="set-field-stack">
+            <div className="set-field-label">{t('setAiDaemon')}</div>
+            <div className="set-field-desc">
+              {catalog?.reachable
+                ? t('setAiDaemonUp', {
+                    version: catalog.version ?? '',
+                    n: String(catalog.models.length),
+                  })
+                : (catalog?.error ?? t('setAiDaemonDown'))}
+            </div>
+          </div>
         </div>
-        <Dropdown
-          className="set-dd"
-          value={provider}
-          ariaLabel={t('setAiProvider')}
-          options={catalog.map((c) => ({
-            value: c.id,
-            label: c.label,
-            render: (
-              <>
-                <ProviderLogo id={c.id} />
-                {c.label}
-              </>
-            ),
-          }))}
-          onPick={(v) => selectProvider(v as AiSettings['provider'])}
-        />
+        <button className="set-btn" disabled={probing} onClick={() => void probe()}>
+          {t('setAiRefreshModels')}
+        </button>
       </div>
-      <div className="set-field-desc set-ai-note">
-        {isGenspark ? t('setAiGensparkHint') : isCodex ? t('setAiCodexHint') : t('setAiByokNote')}
-      </div>
+      <div className="set-field-desc set-ai-note">{t('setAiLocalHint')}</div>
       <div className="set-field">
         <div className="set-field-text">
           <label className="set-field-label">{t('setAiModelId')}</label>
         </div>
-        {meta && meta.models.length > 0 ? (
+        {installed.length > 0 ? (
           <Dropdown
             className="set-dd"
-            value={config.model || meta.defaultModel}
+            value={config.model}
             ariaLabel={t('setAiModelId')}
-            options={meta.models.map((m) => ({ value: m, label: m }))}
+            options={installed.map((m) => ({ value: m.name, label: modelDetail(m.name) }))}
             onPick={(m) => updateConfig({ model: m })}
           />
         ) : (
+          // a stopped daemon must not erase a model the user already picked
           <input
             id="set-ai-model"
             className="set-input"
             type="text"
             value={config.model}
-            placeholder="model-id"
+            placeholder="llama3.2"
             spellCheck={false}
             onChange={(e) => updateConfig({ model: e.target.value })}
           />
         )}
       </div>
-      {isCodex ? (
-        <div className="set-field">
-          <div className="set-field-text">
-            <div className="set-field-stack">
-              <label className="set-field-label" htmlFor="set-ai-cli-path">
-                {t('setAiCodexPath')}
-              </label>
-              <div className="set-field-desc">{t('setAiCodexPathHint')}</div>
-            </div>
+      {catalog?.reachable && installed.length === 0 && (
+        <div className="set-field-desc set-ai-note">{t('setAiNoModels')}</div>
+      )}
+      {selected && !selected.tools && (
+        // the agent loop is built on tool calls; a chat-only model silently
+        // turns every "edit this document" request into prose
+        <div className="set-field-desc set-ai-note">{t('setAiModelNoTools')}</div>
+      )}
+      <div className="set-field">
+        <div className="set-field-text">
+          <div className="set-field-stack">
+            <label className="set-field-label" htmlFor="set-ai-base-url">
+              {t('setAiBaseUrl')}
+            </label>
+            <div className="set-field-desc">{t('setAiBaseUrlHint')}</div>
           </div>
-          <input
-            id="set-ai-cli-path"
-            className="set-input"
-            type="text"
-            value={config.cliPath ?? ''}
-            placeholder={t('setAiCodexAutoPlaceholder')}
-            spellCheck={false}
-            autoComplete="off"
-            onChange={(e) => updateConfig({ cliPath: e.target.value.trim() })}
-            onBlur={(e) => {
-              const cliPath = e.target.value.trim()
-              void refreshCodexModels(cliPath, config.model).catch(() => undefined)
-            }}
-          />
         </div>
-      ) : !isGenspark ? (
-        <>
-          <div className="set-field">
-            <div className="set-field-text">
-              <div className="set-field-stack">
-                <label className="set-field-label" htmlFor="set-ai-key">
-                  {t('setAiApiKey')}
-                </label>
-                <div className="set-field-desc">{t('setAiKeyHint')}</div>
-              </div>
-            </div>
-            <input
-              id="set-ai-key"
-              className="set-input"
-              type="password"
-              value={config.apiKey}
-              placeholder={meta?.keyPlaceholder ?? 'API Key'}
-              spellCheck={false}
-              autoComplete="off"
-              onChange={(e) => updateConfig({ apiKey: e.target.value.trim() })}
-            />
+        <input
+          id="set-ai-base-url"
+          className="set-input"
+          type="text"
+          value={config.baseUrl ?? ''}
+          placeholder={OLLAMA_DEFAULT_HOST}
+          spellCheck={false}
+          onChange={(e) => updateConfig({ baseUrl: e.target.value.trim() })}
+          onBlur={() => void probe()}
+        />
+      </div>
+      <div className="set-field">
+        <div className="set-field-text">
+          <div className="set-field-stack">
+            <label className="set-field-label" htmlFor="set-ai-key">
+              {t('setAiApiKey')}
+            </label>
+            <div className="set-field-desc">{t('setAiKeyHint')}</div>
           </div>
-          <div className="set-field">
-            <div className="set-field-text">
-              <div className="set-field-stack">
-                <label className="set-field-label" htmlFor="set-ai-base-url">
-                  {t('setAiBaseUrl')}
-                </label>
-                {!meta?.needsBaseUrl && (
-                  <div className="set-field-desc">{t('setAiBaseUrlHint')}</div>
-                )}
-              </div>
-            </div>
-            <input
-              id="set-ai-base-url"
-              className="set-input"
-              type="text"
-              value={config.baseUrl ?? ''}
-              placeholder={meta?.needsBaseUrl ? 'https://…/v1' : meta?.defaultBaseUrl}
-              spellCheck={false}
-              onChange={(e) => updateConfig({ baseUrl: e.target.value.trim() })}
-            />
-          </div>
-        </>
-      ) : null}
+        </div>
+        <input
+          id="set-ai-key"
+          className="set-input"
+          type="password"
+          value={config.apiKey}
+          placeholder={t('setAiKeyOptional')}
+          spellCheck={false}
+          autoComplete="off"
+          onChange={(e) => updateConfig({ apiKey: e.target.value.trim() })}
+        />
+      </div>
       <div className="set-field">
         <div className="set-field-text">
           <div className="set-field-stack">
@@ -518,26 +454,6 @@ function AiModelPane({ t }: { t: TFunc }) {
           value={maxTokensDraft ?? String(settings.maxOutputTokens ?? DEFAULT_MAX_OUTPUT_TOKENS)}
           onChange={(e) => setMaxTokensDraft(e.target.value)}
           onBlur={commitMaxTokens}
-        />
-      </div>
-      <div className="set-field">
-        <div className="set-field-text">
-          <div className="set-field-stack">
-            <div className="set-field-label">{t('setAiGskTools')}</div>
-            <div className="set-field-desc">{t('setAiGskToolsDesc')}</div>
-          </div>
-        </div>
-        {/* locked on with the genspark provider — chat runs through gsk anyway */}
-        <button
-          className="set-switch"
-          role="switch"
-          aria-checked={settings.gskToolsEnabled !== false}
-          aria-label={t('setAiGskTools')}
-          disabled={isGenspark}
-          onClick={() => {
-            setSettings({ ...settings, gskToolsEnabled: settings.gskToolsEnabled === false })
-            touch()
-          }}
         />
       </div>
       <div className="set-pane-footer">
@@ -565,23 +481,24 @@ function AiModelPane({ t }: { t: TFunc }) {
   )
 }
 
-type Capability = 'image' | 'analysis' | 'video' | 'search'
-
 /**
- * AI media & search pane, one block per capability — web search, image
- * generation, image analysis, video analysis — each with the same
- * provider / model / key / base URL rows as the AI Model pane. A vendor's key
- * and base URL are stored once and shared by every block that picks it.
- * Saved into the same ai-settings.json as the chat provider.
+ * Media & search pane. Two things are left to configure here:
+ *
+ *  - the vision model `analyze_media` reads images with. It runs on the same
+ *    local daemon as chat, so there is no provider to pick — only which of the
+ *    installed models to use, and leaving it empty reuses the chat model.
+ *  - the web-search backend, which is the one part of Suite that can leave the
+ *    machine. The keyless chain is the default; Serper and Tavily are opt-in.
+ *
+ * Image generation has no block because Ollama has no image-output endpoint,
+ * and video analysis has none because local vision models read stills.
  */
 function AiMediaPane({ t }: { t: TFunc }) {
-  const [mediaCatalog] = useState<AiMediaProviderMeta[]>(
-    () => window.aiOffice.getAiMediaProviders?.() ?? [],
-  )
   const [searchCatalog] = useState<AiSearchProviderMeta[]>(
     () => window.aiOffice.getAiSearchProviders?.() ?? [],
   )
   const [settings, setSettings] = useState<AiSettings | null>(null)
+  const [catalog, setCatalog] = useState<OllamaCatalog | null>(null)
   const [dirty, setDirty] = useState(false)
   const [saved, setSaved] = useState(false)
   const [testing, setTesting] = useState(false)
@@ -592,47 +509,49 @@ function AiMediaPane({ t }: { t: TFunc }) {
     void window.aiOffice.getAiSettings?.().then((s) => {
       if (alive && s) setSettings(s)
     })
+    void window.aiOffice.ollamaStatus?.().then((c) => {
+      if (alive) setCatalog(c)
+    })
     return () => {
       alive = false
     }
   }, [])
 
   if (!settings?.media || !settings.search) return null
-  const media: AiMediaSettings = settings.media
-  const search: AiSearchSettings = settings.search
+  const media = settings.media
+  const search = settings.search
+  const mediaConfig = media.providers.ollama
+  // only a vision model can answer about an image; offering the rest invites a
+  // confusing "this model cannot see" failure at tool time
+  const visionModels = (catalog?.models ?? []).filter((m) => m.vision)
 
   const touch = () => {
     setDirty(true)
     setSaved(false)
     setTestResult(null)
   }
-  const setMedia = (next: AiMediaSettings) => {
-    setSettings({ ...settings, media: next })
-    touch()
-  }
-  const setSearch = (next: AiSearchSettings) => {
-    setSettings({ ...settings, search: next })
-    touch()
-  }
-  const mediaConfigOf = (id: AiMediaProviderId) => {
-    const meta = mediaCatalog.find((m) => m.id === id)
-    return (
-      media.providers[id] ?? {
-        apiKey: '',
-        imageModel: meta?.defaultImageModel ?? '',
-        analysisModel: meta?.defaultAnalysisModel ?? '',
-      }
-    )
-  }
-  const updateMediaConfig = (
-    id: AiMediaProviderId,
-    patch: Partial<AiMediaSettings['providers'][AiMediaProviderId]>,
-  ) =>
-    setMedia({
-      ...media,
-      providers: { ...media.providers, [id]: { ...mediaConfigOf(id), ...patch } },
+  const setAnalysisModel = (model: string) => {
+    setSettings({
+      ...settings,
+      media: { ...media, providers: { ollama: { ...mediaConfig, analysisModel: model } } },
     })
-
+    touch()
+  }
+  const setSearchProvider = (provider: AiSearchSettings['provider']) => {
+    setSettings({ ...settings, search: { ...search, provider } })
+    touch()
+  }
+  const setSearchKey = (apiKey: string) => {
+    if (search.provider === 'free') return
+    setSettings({
+      ...settings,
+      search: {
+        ...search,
+        providers: { ...search.providers, [search.provider]: { apiKey } },
+      },
+    })
+    touch()
+  }
   const save = () => {
     window.aiOffice
       .setAiSettings?.(settings)
@@ -640,43 +559,17 @@ function AiMediaPane({ t }: { t: TFunc }) {
         setDirty(false)
         setSaved(true)
       })
-      .catch((error) => {
-        window.alert(error instanceof Error ? error.message : String(error))
-      })
+      .catch((error) => window.alert(error instanceof Error ? error.message : String(error)))
   }
-  // every distinct BYOK vendor the four blocks point at is checked once; first failure wins
   const test = async () => {
     setTesting(true)
     setTestResult(null)
     try {
-      const vendors = new Set<AiMediaProviderId>(
-        [media.imageProvider, media.analysisProvider, media.videoAnalysisProvider].filter(
-          (id) => id !== 'genspark',
-        ),
-      )
-      const checks: Promise<{ ok: boolean; error?: string } | undefined>[] = [...vendors].map(
-        (id) =>
-          window.aiOffice.testAiMediaSettings?.({ provider: id, config: mediaConfigOf(id) }) ??
-          Promise.resolve(undefined),
-      )
-      if (search.provider !== 'genspark') {
-        checks.push(
-          window.aiOffice.testAiSearchSettings?.({
-            provider: search.provider,
-            apiKey: search.providers[search.provider]?.apiKey ?? '',
-          }) ?? Promise.resolve(undefined),
-        )
-      }
-      if (checks.length === 0) {
-        checks.push(
-          window.aiOffice.testAiMediaSettings?.({
-            provider: 'genspark',
-            config: mediaConfigOf('genspark'),
-          }) ?? Promise.resolve(undefined),
-        )
-      }
-      const results = await Promise.all(checks)
-      setTestResult(results.find((r) => r && !r.ok) ?? { ok: true })
+      const r = await window.aiOffice.testAiSearchSettings?.({
+        provider: search.provider,
+        apiKey: search.provider === 'free' ? '' : search.providers[search.provider].apiKey,
+      })
+      setTestResult(r ?? { ok: false })
     } catch (error) {
       setTestResult({ ok: false, error: error instanceof Error ? error.message : String(error) })
     } finally {
@@ -684,219 +577,74 @@ function AiMediaPane({ t }: { t: TFunc }) {
     }
   }
 
-  const providerRow = (
-    label: string,
-    value: string,
-    options: { id: string; label: string }[],
-    onPick: (id: string) => void,
-  ) => (
-    <div className="set-field">
-      <div className="set-field-text">
-        <label className="set-field-label">{t('setAiProvider')}</label>
-      </div>
-      <Dropdown
-        className="set-dd"
-        value={value}
-        ariaLabel={label}
-        options={options.map((c) => ({
-          value: c.id,
-          label: c.label,
-          render: (
-            <>
-              <ProviderLogo id={c.id} />
-              {c.label}
-            </>
-          ),
-        }))}
-        onPick={onPick}
-      />
-    </div>
-  )
-
-  const modelRow = (
-    id: string,
-    models: string[],
-    fallback: string,
-    value: string,
-    onChange: (v: string) => void,
-  ) => (
-    <div className="set-field">
-      <div className="set-field-text">
-        <label className="set-field-label" htmlFor={id}>
-          {t('setAiModelId')}
-        </label>
-      </div>
-      {models.length > 0 ? (
-        <Dropdown
-          className="set-dd"
-          value={value || fallback}
-          ariaLabel={t('setAiModelId')}
-          options={models.map((m) => ({ value: m, label: m }))}
-          onPick={onChange}
-        />
-      ) : (
-        <input
-          id={id}
-          className="set-input"
-          type="text"
-          value={value}
-          placeholder="model-id"
-          spellCheck={false}
-          onChange={(e) => onChange(e.target.value)}
-        />
-      )}
-    </div>
-  )
-
-  const keyRow = (
-    id: string,
-    value: string,
-    placeholder: string,
-    onChange: (v: string) => void,
-  ) => (
-    <div className="set-field">
-      <div className="set-field-text">
-        <div className="set-field-stack">
-          <label className="set-field-label" htmlFor={id}>
-            {t('setAiApiKey')}
-          </label>
-          <div className="set-field-desc">{t('setAiKeyHint')}</div>
-        </div>
-      </div>
-      <input
-        id={id}
-        className="set-input"
-        type="password"
-        value={value}
-        placeholder={placeholder}
-        spellCheck={false}
-        autoComplete="off"
-        onChange={(e) => onChange(e.target.value.trim())}
-      />
-    </div>
-  )
-
-  const baseUrlRow = (
-    id: string,
-    meta: AiMediaProviderMeta,
-    value: string,
-    onChange: (v: string) => void,
-  ) => (
-    <div className="set-field">
-      <div className="set-field-text">
-        <div className="set-field-stack">
-          <label className="set-field-label" htmlFor={id}>
-            {t('setAiBaseUrl')}
-          </label>
-          {!meta.needsBaseUrl && <div className="set-field-desc">{t('setAiBaseUrlHint')}</div>}
-        </div>
-      </div>
-      <input
-        id={id}
-        className="set-input"
-        type="text"
-        value={value}
-        placeholder={meta.needsBaseUrl ? 'https://…/v1' : meta.defaultBaseUrl}
-        spellCheck={false}
-        onChange={(e) => onChange(e.target.value.trim())}
-      />
-    </div>
-  )
-
-  /** one media block: provider → model → key → base URL (key/base URL shared per vendor) */
-  const mediaBlock = (cap: Exclude<Capability, 'search'>) => {
-    const title =
-      cap === 'image'
-        ? t('setAiCapImage')
-        : cap === 'analysis'
-          ? t('setAiCapAnalysis')
-          : t('setAiCapVideo')
-    const options = mediaCatalog.filter((m) =>
-      cap === 'image'
-        ? !!m.imageProtocol
-        : cap === 'video'
-          ? !!m.analysisProtocol && m.videoAnalysis
-          : !!m.analysisProtocol,
-    )
-    const current =
-      cap === 'image'
-        ? media.imageProvider
-        : cap === 'video'
-          ? media.videoAnalysisProvider
-          : media.analysisProvider
-    const meta = options.find((m) => m.id === current) ?? options[0]!
-    const id = meta.id
-    const config = mediaConfigOf(id)
-    const pick = (next: string) => {
-      const p = next as AiMediaProviderId
-      setMedia(
-        cap === 'image'
-          ? { ...media, imageProvider: p }
-          : cap === 'video'
-            ? { ...media, videoAnalysisProvider: p }
-            : { ...media, analysisProvider: p },
-      )
-    }
-    const modelField = cap === 'image' ? 'imageModel' : 'analysisModel'
-    return (
-      <section key={cap}>
-        <h4 className="set-pane-subtitle">{title}</h4>
-        {providerRow(title, id, options, pick)}
-        <div className="set-field-desc set-ai-note">
-          {id === 'genspark' ? t('setAiMediaGensparkHint') : meta.description}
-        </div>
-        {id !== 'genspark' && (
-          <>
-            {modelRow(
-              `set-ai-${cap}-model`,
-              cap === 'image' ? meta.imageModels : meta.analysisModels,
-              cap === 'image' ? meta.defaultImageModel : meta.defaultAnalysisModel,
-              config[modelField],
-              (m) => updateMediaConfig(id, { [modelField]: m }),
-            )}
-            {keyRow(`set-ai-${cap}-key`, config.apiKey, meta.keyPlaceholder, (v) =>
-              updateMediaConfig(id, { apiKey: v }),
-            )}
-            {baseUrlRow(`set-ai-${cap}-base-url`, meta, config.baseUrl ?? '', (v) =>
-              updateMediaConfig(id, { baseUrl: v }),
-            )}
-          </>
-        )}
-      </section>
-    )
-  }
-
   const searchMeta = searchCatalog.find((m) => m.id === search.provider)
-  const searchKey =
-    search.provider === 'genspark' ? '' : (search.providers[search.provider]?.apiKey ?? '')
 
   return (
     <>
       <h3 className="set-pane-title">{t('setSecAiMedia')}</h3>
-      <div className="set-field-desc set-ai-note">{t('setAiSharedKeyHint')}</div>
-      <section>
-        <h4 className="set-pane-subtitle">{t('setAiCapSearch')}</h4>
-        {providerRow(t('setAiCapSearch'), search.provider, searchCatalog, (v) =>
-          setSearch({ ...search, provider: v as AiSearchSettings['provider'] }),
-        )}
-        <div className="set-field-desc set-ai-note">
-          {search.provider === 'genspark'
-            ? t('setAiSearchGensparkHint')
-            : searchMeta?.imageSearch
-              ? t('setAiSearchSerperHint')
-              : t('setAiSearchTavilyHint')}
+      <div className="set-field">
+        <div className="set-field-text">
+          <div className="set-field-stack">
+            <label className="set-field-label">{t('setAiAnalysisModel')}</label>
+            <div className="set-field-desc">{t('setAiAnalysisModelHint')}</div>
+          </div>
         </div>
-        {search.provider !== 'genspark' &&
-          keyRow('set-ai-search-key', searchKey, searchMeta?.keyPlaceholder ?? 'API Key', (v) =>
-            setSearch({
-              ...search,
-              providers: { ...search.providers, [search.provider]: { apiKey: v } },
-            }),
-          )}
-      </section>
-      {mediaBlock('image')}
-      {mediaBlock('analysis')}
-      {mediaBlock('video')}
+        {visionModels.length > 0 ? (
+          <Dropdown
+            className="set-dd"
+            value={mediaConfig.analysisModel}
+            ariaLabel={t('setAiAnalysisModel')}
+            options={[
+              { value: '', label: t('setAiAnalysisSameAsChat') },
+              ...visionModels.map((m) => ({ value: m.name, label: m.name })),
+            ]}
+            onPick={setAnalysisModel}
+          />
+        ) : (
+          <input
+            className="set-input"
+            type="text"
+            value={mediaConfig.analysisModel}
+            placeholder={t('setAiAnalysisSameAsChat')}
+            spellCheck={false}
+            onChange={(e) => setAnalysisModel(e.target.value.trim())}
+          />
+        )}
+      </div>
+      <div className="set-field">
+        <div className="set-field-text">
+          <label className="set-field-label">{t('setAiCapSearch')}</label>
+        </div>
+        <Dropdown
+          className="set-dd"
+          value={search.provider}
+          ariaLabel={t('setAiCapSearch')}
+          options={searchCatalog.map((m) => ({ value: m.id, label: m.label }))}
+          onPick={(v) => setSearchProvider(v as AiSearchSettings['provider'])}
+        />
+      </div>
+      {search.provider !== 'free' && (
+        <div className="set-field">
+          <div className="set-field-text">
+            <div className="set-field-stack">
+              <label className="set-field-label" htmlFor="set-search-key">
+                {t('setAiApiKey')}
+              </label>
+              <div className="set-field-desc">{t('setAiKeyHint')}</div>
+            </div>
+          </div>
+          <input
+            id="set-search-key"
+            className="set-input"
+            type="password"
+            value={search.providers[search.provider].apiKey}
+            placeholder={searchMeta?.keyPlaceholder ?? 'API Key'}
+            spellCheck={false}
+            autoComplete="off"
+            onChange={(e) => setSearchKey(e.target.value.trim())}
+          />
+        </div>
+      )}
       <div className="set-pane-footer">
         <AiStatusPill
           status={
@@ -976,40 +724,19 @@ function AiStatusPill({ status }: { status: AiStatus | null }) {
 }
 
 export interface SettingsModalProps {
-  status: AccountStatus | null
-  loggingOut: boolean
-  /** browser sign-in in progress (spinner shows on the account entry) */
-  loginWaiting: boolean
-  /** device auth URL while waiting — rescue actions when the browser did not auto-open */
-  loginUrl: string | null
-  urlCopied: boolean
-  onOpenLoginUrl: () => void
-  onCopyLoginUrl: () => void
   onClose: () => void
-  /** closes the modal and launches the Genspark login flow (progress shows on the account entry) */
-  onLogin: () => void
-  onLogout: () => void
   /** an installed skill is older than the bundled one: dot on the Integrations entry */
   skillUpdateDue?: boolean
   onSkillUpdateDue?: (due: boolean) => void
 }
 
 export function SettingsModal({
-  status,
-  loggingOut,
-  loginWaiting,
-  loginUrl,
-  urlCopied,
-  onOpenLoginUrl,
-  onCopyLoginUrl,
   onClose,
-  onLogin,
-  onLogout,
   skillUpdateDue: updateDue = false,
   onSkillUpdateDue,
 }: SettingsModalProps) {
   const { lang, setLang, t } = useI18n()
-  const [section, setSection] = useState<SectionId>('account')
+  const [section, setSection] = useState<SectionId>('aiModel')
   const [theme, setTheme] = useState<UiTheme>('system')
   const [saveDir, setSaveDir] = useState('')
   const [analyticsOn, setAnalyticsOn] = useState(true)
@@ -1077,9 +804,6 @@ export function SettingsModal({
     })
   }
 
-  const loggedIn = status?.loggedIn ?? false
-  const email = status?.email ?? ''
-
   return (
     <div
       className="set-overlay"
@@ -1119,54 +843,6 @@ export function SettingsModal({
             ))}
           </nav>
           <div className="set-pane">
-            {section === 'account' && (
-              <>
-                <h3 className="set-pane-title">{t('setSecAccount')}</h3>
-                <Field label={t('setEmail')} value={loggedIn ? email : t('setNotLoggedIn')} />
-                {loggedIn && (
-                  <Field
-                    label={t('credits')}
-                    value={
-                      status?.creditBalance === undefined
-                        ? '—'
-                        : Math.floor(status.creditBalance).toLocaleString('en-US')
-                    }
-                    action={
-                      <button
-                        className="set-btn"
-                        data-tip={t('creditsTip')}
-                        onClick={() => void window.aiOffice.openCreditUsage?.()}
-                      >
-                        {t('setViewUsage')}
-                      </button>
-                    }
-                  />
-                )}
-                <div className="set-pane-footer">
-                  {loggedIn ? (
-                    <button className="set-btn danger" disabled={loggingOut} onClick={onLogout}>
-                      {loggingOut ? t('loggingOut') : t('logout')}
-                    </button>
-                  ) : (
-                    <>
-                      {loginWaiting && loginUrl && (
-                        <>
-                          <button className="set-btn" onClick={onOpenLoginUrl}>
-                            {t('loginOpenManually')}
-                          </button>
-                          <button className="set-btn" onClick={onCopyLoginUrl}>
-                            {urlCopied ? t('loginCopied') : t('loginCopyUrl')}
-                          </button>
-                        </>
-                      )}
-                      <button className="set-btn primary" onClick={onLogin}>
-                        {loginWaiting ? t('waitingShort') : t('loginGenspark')}
-                      </button>
-                    </>
-                  )}
-                </div>
-              </>
-            )}
             {section === 'aiModel' && <AiModelPane t={t} />}
             {section === 'aiMedia' && <AiMediaPane t={t} />}
             {section === 'general' && (

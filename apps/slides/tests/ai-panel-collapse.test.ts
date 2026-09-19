@@ -25,14 +25,12 @@ vi.mock('react-konva', () => {
 })
 
 import { AiPanel } from '../src/renderer/ai/AiPanel'
-import { AI_PROVIDERS, type AiSettings } from '../src/shared/ipc'
+import type { AiSettings } from '../src/shared/ipc'
 import { applyAiPanelPrefs } from '@genoffice/ui'
 
 const settings: AiSettings = {
-  provider: 'anthropic',
-  providers: Object.fromEntries(
-    AI_PROVIDERS.map((p) => [p.id, { apiKey: '', model: p.defaultModel }]),
-  ) as AiSettings['providers'],
+  provider: 'ollama',
+  providers: { ollama: { apiKey: '', model: 'llama3.2', baseUrl: 'http://127.0.0.1:11434' } },
 }
 
 function mount(element: React.ReactElement): {

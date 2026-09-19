@@ -1,62 +1,73 @@
 import {
-  activeMediaProvider,
   activeSearchProvider,
-  cloudToolsEnabled,
+  aiConfigured,
+  fetchOllamaCatalog,
   imageGenerationAvailable,
   mediaAnalysisAvailable,
+  mediaAnalysisModel,
 } from '@genoffice/ai-provider'
-import { hasGskAuth, readAiSettingsFile } from '@genoffice/ai-search'
+import { readAiSettingsFile } from '@genoffice/ai-search'
 import { aiSettingsPath, prepareCloud } from '../cloud'
 import type { CommandDef } from '../registry'
 import { appLaunch } from '../resources'
 
 /**
- * What the cloud commands can do on this machine, decided from GenOffice's
- * own settings without a network call: a Genspark login with cloud tools on,
- * or a BYOK key the user entered in Settings. Unkeyed fallbacks (DuckDuckGo)
- * do not count as configured. Agents check this once before planning work
- * that needs photos or web facts.
+ * What this machine can actually do, read from Suite's own settings plus one
+ * probe of the local daemon. Agents check this once before planning work that
+ * needs a model, a picture read or web facts — the daemon probe matters
+ * because a configured model that is not installed fails at the first turn.
+ *
+ * Unkeyed search fallbacks (DuckDuckGo) count as available but are reported
+ * as `via: free`, so a caller that needs good results can tell the difference.
  */
 export const capabilitiesCommand: CommandDef = {
   name: 'capabilities',
   summary:
-    'Report which cloud features (search, image search, image generation, media analysis) are configured in GenOffice, and whether the app is installed.',
+    'Report which AI features (chat, media analysis, search, image search) are configured in Suite, whether the Ollama daemon is reachable, and whether the app is installed.',
   usage: 'capabilities',
   async run(_args, ctx) {
     await prepareCloud(ctx.env)
     const settings = readAiSettingsFile(aiSettingsPath(ctx.env))
-    const gsk = hasGskAuth() && cloudToolsEnabled(settings)
+    const catalog = await fetchOllamaCatalog(settings.providers.ollama.baseUrl)
+    const chatModel = settings.providers.ollama.model
+    const installed = new Set(catalog.models.map((m) => m.name))
+    const usable = (model: string) => model !== '' && catalog.reachable && installed.has(model)
     const searchProvider = activeSearchProvider(settings)
-    const keyedSearch = searchProvider !== 'genspark'
-    const search = gsk || keyedSearch
-    const imageSearch = gsk || searchProvider === 'serper'
-    const imageGeneration = imageGenerationAvailable(settings, hasGskAuth())
-    const mediaAnalysis = mediaAnalysisAvailable(settings, hasGskAuth())
-    const via = (byok: string | null | undefined) => (byok ? byok : gsk ? 'genspark' : null)
     const detail = {
-      search: { available: search, via: keyedSearch ? searchProvider : gsk ? 'genspark' : null },
-      image_search: {
-        available: imageSearch,
-        via: searchProvider === 'serper' ? 'serper' : gsk ? 'genspark' : null,
+      ollama: {
+        reachable: catalog.reachable,
+        base_url: catalog.baseUrl,
+        ...(catalog.version ? { version: catalog.version } : {}),
+        installed_models: catalog.models.map((m) => m.name),
+        ...(catalog.error ? { error: catalog.error } : {}),
       },
-      image_generation: {
-        available: imageGeneration,
-        via: imageGeneration ? via(activeMediaProvider(settings, 'image')) : null,
+      chat: {
+        available: usable(chatModel),
+        model: chatModel || null,
+        // a selected model the daemon does not serve is the one failure worth naming here
+        ...(aiConfigured(settings) && !usable(chatModel) ? { reason: 'model not installed' } : {}),
       },
       media_analysis: {
-        available: mediaAnalysis,
-        via: mediaAnalysis ? via(activeMediaProvider(settings, 'analysis')) : null,
+        available: mediaAnalysisAvailable(settings) && usable(mediaAnalysisModel(settings)),
+        model: mediaAnalysisModel(settings) || null,
+      },
+      image_generation: {
+        available: imageGenerationAvailable(),
+        reason: 'Ollama cannot generate images',
+      },
+      search: { available: true, via: searchProvider },
+      image_search: {
+        available: true,
+        via: searchProvider === 'serper' ? 'serper' : 'free',
       },
       app: { available: appLaunch(ctx.env) !== null },
       settings_path: aiSettingsPath(ctx.env),
     }
-    const on = Object.entries(detail)
-      .filter(([k, v]) => k !== 'settings_path' && (v as { available: boolean }).available)
-      .map(([k]) => k)
+    const on = (['chat', 'media_analysis', 'search', 'image_search'] as const).filter(
+      (k) => detail[k].available,
+    )
     return {
-      summary: on.length
-        ? `configured: ${on.join(', ')}`
-        : 'no cloud feature configured; the app is not installed',
+      summary: on.length ? `configured: ${on.join(', ')}` : 'no AI feature configured',
       detail,
     }
   },

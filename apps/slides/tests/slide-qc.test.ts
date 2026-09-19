@@ -104,25 +104,28 @@ describe('isQcEnabled', () => {
 })
 
 describe('vision capability fallback', () => {
-  it('uses the selected model when a provider mixes text and vision models', () => {
-    const withProvider = (provider: AiProviderId) => ({ ...defaultAiSettings(), provider })
-    const deepseek = withProvider('deepseek')
-    expect(settingsSupportVision(deepseek)).toBe(false)
-    deepseek.providers.deepseek.model = 'deepseek-flash'
-    expect(settingsSupportVision(deepseek)).toBe(true)
-    expect(settingsSupportVision(withProvider('glm'))).toBe(false)
-    expect(settingsSupportVision(withProvider('gemini'))).toBe(true)
+  // Installed models are a mix of text-only and vision; sending a screenshot to
+  // the wrong one is an error turn, so the decision is per model id.
+  it('recognizes the vision-capable local model families', () => {
+    const withModel = (model: string) => {
+      const settings = defaultAiSettings()
+      settings.providers.ollama.model = model
+      return settings
+    }
+    expect(settingsSupportVision(withModel('llava:13b'))).toBe(true)
+    expect(settingsSupportVision(withModel('qwen3.5:latest'))).toBe(true)
+    expect(settingsSupportVision(withModel('gemma3:12b'))).toBe(true)
   })
 
-  it('does not send screenshots to text-only models under a vision-capable provider', () => {
+  it('does not send screenshots to a text-only model', () => {
     const settings = defaultAiSettings()
-    settings.providers.genspark.model = 'deep-seek-v4-flash'
+    settings.providers.ollama.model = 'llama3.2:3b'
     expect(settingsSupportVision(settings)).toBe(false)
-    settings.providers.genspark.model = 'claude-opus-4-7'
+    settings.providers.ollama.model = 'llava:13b'
     expect(settingsSupportVision(settings)).toBe(true)
   })
 
-  it('recognizes image-capability errors from optimistic custom endpoints', () => {
+  it('recognizes image-capability errors a model reports at request time', () => {
     expect(isUnsupportedImageInputError('This model does not support image')).toBe(true)
     expect(isUnsupportedImageInputError('Vision input is not supported by this model')).toBe(true)
     expect(isUnsupportedImageInputError('HTTP 500: temporary provider failure')).toBe(false)

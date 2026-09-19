@@ -11,7 +11,7 @@ import { t } from '../src/renderer/i18n/locale'
 import { AI_PROVIDERS, type AiSettings } from '../src/shared/ipc'
 
 const settings: AiSettings = {
-  provider: 'anthropic',
+  provider: 'ollama',
   providers: Object.fromEntries(
     AI_PROVIDERS.map((p) => [p.id, { apiKey: '', model: p.defaultModel }]),
   ) as AiSettings['providers'],

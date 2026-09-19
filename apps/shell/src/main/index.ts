@@ -11,6 +11,7 @@ import {
   writeFileSync,
 } from 'node:fs'
 import { basename, dirname, extname, join, resolve } from 'node:path'
+import { fetchOllamaCatalog, type OllamaCatalog } from '@genoffice/ai-provider'
 import {
   BrowserWindow,
   Menu,
@@ -91,19 +92,9 @@ import {
   withResolved,
   withShown,
 } from './star-prompt'
-import {
-  clearCloudProjectsStore,
-  cloudProjectExternalUrl,
-  readCloudProjectsStore,
-  syncCloudProjects,
-} from './cloud-projects'
 import { handleDroppedFiles } from './dropped-files'
 import {
-  genofficeLogout,
-  gskLoginInfo,
-  loadGenofficeAuth,
-  setGskProxyUrl,
-  startGenofficeLogin,
+  setSearchProxyUrl,
 } from '@genoffice/ai-search'
 
 import {
@@ -239,7 +230,6 @@ import {
   setHtmlProvisionalTitleHook,
 } from '../../../html/src/main/html-main'
 import type {
-  AccountLoginEvent,
   AutoSaveDefault,
   FolderListing,
   FolderRoot,
@@ -558,14 +548,6 @@ function initAnalytics(): void {
 
 // ---- first-run onboarding ----
 // The GenTeam community page opened from the onboarding's second slide.
-// Stable short link served by the genoffice.ai site; it 302s to the tokened
-// invite link, which stays out of this repo and rotates server-side.
-const GENTEAM_URL = 'https://genoffice.ai/join'
-
-// Genspark credit-usage page opened from the account menu's credits row.
-// Kept main-side so the renderer never supplies the URL.
-const CREDIT_USAGE_URL = 'https://www.genspark.ai/credit-usage'
-
 // ---- "star us on GitHub" prompt (see star-prompt.ts for the rules) ----
 
 const readStarPrompt = () =>
@@ -3177,53 +3159,22 @@ function statEntries(paths: string[]): RecentEntry[] {
 }
 
 function registerHomeIpc(): void {
-  // signed-in means GenOffice's own device-code login; the shared gsk CLI key
-  // is only a silent fallback, deliberately not shown here to nudge users onto our key
-  ipcMain.handle(HOME_CHANNELS.accountStatus, async () => {
-    if (!loadGenofficeAuth()) return { loggedIn: false }
-    await proxyBootstrap
-    const info = await gskLoginInfo()
-    return info
-      ? { loggedIn: true, email: info.email, creditBalance: info.creditBalance }
-      : { loggedIn: true }
-  })
-
-  // login progress is streamed to the requesting renderer; the auth URL is
-  // kept main-side so the "open manually" rescue never opens a renderer-supplied URL
-  let pendingLoginUrl = ''
-  ipcMain.handle(HOME_CHANNELS.accountLogin, async (event) => {
-    analytics.track('login_click')
-    const sender = event.sender
-    pendingLoginUrl = ''
-    await proxyBootstrap
-    const send = (payload: AccountLoginEvent) => {
-      if (!sender.isDestroyed()) sender.send(HOME_CHANNELS.accountLoginEvent, payload)
+  // The only AI setup state left: is the local daemon up, and what has the
+  // user pulled into it? The home entry and the settings pane both read this.
+  ipcMain.handle(HOME_CHANNELS.ollamaStatus, async (): Promise<OllamaCatalog> => {
+    // read the host straight off the shared settings file; a malformed or
+    // missing file just means the daemon default, which is what a fresh
+    // install has anyway
+    let baseUrl: string | undefined
+    try {
+      const raw = JSON.parse(
+        readFileSync(join(app.getPath('userData'), 'ai-settings.json'), 'utf-8'),
+      ) as { providers?: { ollama?: { baseUrl?: string } } }
+      baseUrl = raw.providers?.ollama?.baseUrl
+    } catch {
+      /* no settings yet */
     }
-    // open the browser on the first url event only; later events refresh the rescue URL
-    let opened = false
-    const launched = startGenofficeLogin((progress) => {
-      if (progress.url) {
-        pendingLoginUrl = progress.url
-        if (!opened) {
-          opened = true
-          void shell.openExternal(progress.url)
-        }
-      }
-      if (progress.phase === 'success') analytics.track('login_success')
-      send(progress)
-    })
-    if (launched) send({ phase: 'launched' })
-    return launched
-  })
-
-  ipcMain.handle(HOME_CHANNELS.accountLoginOpenUrl, () => {
-    if (pendingLoginUrl) void shell.openExternal(pendingLoginUrl)
-  })
-
-  ipcMain.handle(HOME_CHANNELS.accountLogout, async () => {
-    await genofficeLogout()
-    // the cloud projects cache belongs to the account that just signed out
-    clearCloudProjectsStore(cloudProjectsStorePath())
+    return fetchOllamaCatalog(baseUrl)
   })
 
   ipcMain.handle(HOME_CHANNELS.getAppVersion, (): string => app.getVersion())
@@ -3668,18 +3619,6 @@ function registerHomeIpc(): void {
     return picked
   })
 
-  ipcMain.handle(HOME_CHANNELS.openGenTeam, () => {
-    shell.openExternal(GENTEAM_URL).catch(() => {
-      // no browser handler available; nothing actionable for the user here
-    })
-  })
-
-  ipcMain.handle(HOME_CHANNELS.openCreditUsage, () => {
-    shell.openExternal(CREDIT_USAGE_URL).catch(() => {
-      // no browser handler available; nothing actionable for the user here
-    })
-  })
-
   ipcMain.handle(HOME_CHANNELS.openGitHubRepo, () => {
     shell.openExternal(GITHUB_REPO_URL).catch(() => {
       // no browser handler available; nothing actionable for the user here
@@ -3722,18 +3661,6 @@ function registerHomeIpc(): void {
     if (action === 'starred') writeStarPrompt(withResolved(readStarPrompt()))
   })
 
-  const cloudProjectsStorePath = () => join(app.getPath('userData'), 'cloud-projects.json')
-
-  ipcMain.handle(HOME_CHANNELS.cloudProjectsCached, () =>
-    readCloudProjectsStore(cloudProjectsStorePath()),
-  )
-
-  ipcMain.handle(HOME_CHANNELS.cloudProjects, () => syncCloudProjects(cloudProjectsStorePath()))
-
-  ipcMain.handle(HOME_CHANNELS.openCloudProject, (_event, projectUrl: unknown) => {
-    const url = cloudProjectExternalUrl(projectUrl)
-    if (url) void shell.openExternal(url)
-  })
 }
 
 function stringPaths(value: unknown): string[] {
@@ -4688,7 +4615,7 @@ async function installMainProcessProxy(): Promise<void> {
   if (!proxyUrl) return
   // spawned gsk CLI children (login/search/…) do their own fetch and never see
   // the dispatcher below — forward the proxy to them via env
-  setGskProxyUrl(proxyUrl)
+  setSearchProxyUrl(proxyUrl)
   try {
     const { ProxyAgent, setGlobalDispatcher } = await import('undici')
     setGlobalDispatcher(new ProxyAgent(proxyUrl))

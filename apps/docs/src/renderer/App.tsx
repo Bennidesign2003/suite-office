@@ -72,7 +72,7 @@ import {
   type WatermarkSpec,
 } from '@genoffice/docx-engine'
 import type { AiDocContent, AiSettings, OpenDocxResult } from '../shared/ipc'
-import { AI_PROVIDERS } from '../shared/ipc'
+import { defaultAiSettings } from '../shared/ipc'
 import { ZoteroDocumentController } from './zotero/controller'
 import { AiPanel, AI_REVISION_AUTHOR } from './ai/AiPanel'
 import type { AiCommentsAccess, AiDocExtras, AiHeaderFooterAccess } from './ai/tools'
@@ -579,15 +579,8 @@ function makeGapNotesEl(
   return wrap
 }
 
-const DEFAULT_SETTINGS: AiSettings = {
-  provider: 'anthropic',
-  providers: Object.fromEntries(
-    AI_PROVIDERS.map((p) => [
-      p.id,
-      { apiKey: '', model: p.defaultModel, baseUrl: p.needsBaseUrl ? '' : undefined },
-    ]),
-  ) as AiSettings['providers'],
-}
+/** what the renderer assumes before ai:get-settings answers */
+const DEFAULT_SETTINGS: AiSettings = defaultAiSettings()
 
 /** heading level after a define_style patch: null outlineLevel drops heading status, a number sets it, absent keeps the current */
 export function App() {

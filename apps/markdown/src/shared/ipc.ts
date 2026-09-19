@@ -4,7 +4,7 @@ import type {
   AiSettings,
   AiStreamChunk,
   AiStreamRequest,
-  GenSparkAccountStatus,
+  OllamaCatalog,
 } from '@genoffice/ai-provider'
 
 export const MARKDOWN_CHANNELS = {
@@ -80,7 +80,7 @@ export type SaveMarkdownResult =
 /** AI channels are app-wide shared ipcMain handlers (shell registers via docs-main registerAiIpc); pass-through only */
 export const AI_CHANNELS = {
   getSettings: 'ai:get-settings',
-  gskStatus: 'ai:gsk-status',
+  gskStatus: 'ai:ollama-status',
   stream: 'ai:stream',
   streamChunk: 'ai:stream-chunk',
   streamCancel: 'ai:stream-cancel',
@@ -205,7 +205,7 @@ export interface MarkdownApi {
   onChromePressed(handler: () => void): () => void
   getAiSettings(): Promise<AiSettings>
   /** Genspark login state (shell-registered ai:gsk-status) — gates generate_image with the cloud-tools toggle */
-  aiGskStatus(): Promise<GenSparkAccountStatus>
+  aiOllamaStatus(): Promise<OllamaCatalog>
   aiStream(request: AiStreamRequest): Promise<void>
   aiStreamCancel(requestId: string): Promise<void>
   onAiStream(handler: (chunk: AiStreamChunk) => void): () => void

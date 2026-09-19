@@ -248,7 +248,6 @@ interface ChatEntry {
   error?: string
   streaming?: boolean
   /** the run failed because Genspark is signed out — render an inline sign-in button */
-  loginRequired?: boolean
   tools?: ToolActivity[]
   /** Generation progress card (only one per turn, replaced in real time) */
   deckProgress?: DeckProgressSnapshot
@@ -527,25 +526,6 @@ export function AiPanel({
   const settingsRef = useRef(settings)
   settingsRef.current = settings
 
-  /** gsk login state for the cloud-tools gate (refreshed on mount and window focus) */
-  const gskLoggedInRef = useRef(false)
-  useEffect(() => {
-    let alive = true
-    const refresh = () => {
-      void window.slidesApi
-        ?.aiGskStatus()
-        .then((s) => {
-          if (alive) gskLoggedInRef.current = !!s?.loggedIn
-        })
-        .catch(() => {})
-    }
-    refresh()
-    window.addEventListener('focus', refresh)
-    return () => {
-      alive = false
-      window.removeEventListener('focus', refresh)
-    }
-  }, [])
   const imagesRef = useRef(images)
   imagesRef.current = images
   const attachmentsRef = useRef(attachments)
@@ -792,23 +772,13 @@ export function AiPanel({
 
   const loopRef = useRef<AgentLoop | null>(null)
   if (!loopRef.current) {
-    // The three slides generation steps (style/planning/per-page HTML) force the high-quality model (only with the anthropic provider;
-    // other providers keep the user setting, avoiding passing nonexistent model names). Chat/fine-tuning still uses the user's configured model.
-    const SLIDES_GEN_MODEL = 'claude-opus-4-7'
-    // Return on demand a settings copy with the generation model overridden (deep copy, doesn't pollute settingsRef).
-    const settingsForGen = (): AiSettings => {
-      const cur = settingsRef.current
-      if (cur.provider !== 'anthropic') return cur
-      const ap = cur.providers.anthropic
-      return {
-        ...cur,
-        providers: { ...cur.providers, anthropic: { ...ap, model: SLIDES_GEN_MODEL } },
-      }
-    }
+    // Upstream forced a hosted opus-class model for the three generation steps
+    // (style / planning / per-page HTML). A local daemon serves whatever the
+    // user pulled, so there is no better model to reach for: every step runs on
+    // the configured one, and `useGenModel` no longer changes the request.
+    const settingsForGen = (): AiSettings => settingsRef.current
     // Send one LLM request, aggregating streaming deltas into complete text. Shared by in-tool per-page/planning.
     // - On timeout/user stop (signal abort) call aiStreamCancel to cancel the main-process stream, leaving no orphan requests.
-    // - useGenModel=true uses SLIDES_GEN_MODEL first; on request errors (non-timeout) automatically falls back to the
-    //   user-configured model and retries once, so generation isn't wiped out when the key lacks access to that model.
     // errKind marks failure categories that shouldn't retry with another model (timeout/empty output/user stop)
     type LlmResult = {
       ok: boolean
@@ -919,13 +889,8 @@ export function AiPanel({
         signal,
         maxTokens,
       )
-      if (first.ok || !useGenModel || signal?.aborted) return first
-      // Only "request errors" fall back to the user's model for a retry; timeouts/empty output don't switch models (mostly network/output problems, switching won't help)
-      if (first.errKind) return first
-      const cur = settingsRef.current
-      if (cur.provider !== 'anthropic') return first // The gen-model override only applies with anthropic
-      if (cur.providers.anthropic?.model === SLIDES_GEN_MODEL) return first
-      return runLlmAttempt(cur, system, user, timeoutMs, signal, maxTokens)
+      // one daemon, one model: there is nothing to retry on
+      return first
     }
 
     const access: DeckAccess = {
@@ -1033,16 +998,9 @@ export function AiPanel({
           setActiveClarify(questions)
         })
       },
-      isCloudPageGenEnabled: async () => {
-        try {
-          return !!(await window.slidesApi.cloudGenStatus())?.enabled
-        } catch {
-          return false
-        }
-      },
-      // Local single-page generation (no gsk needed, e.g. BYOK): one LLM request through the
-      // app's own AI transport writes a structured JSON slide spec, and the main process builds
-      // it directly into a one-slide pptx with pptx-engine primitives — no HTML intermediate.
+      // Single-page generation: one LLM request through the app's own AI
+      // transport writes a structured JSON slide spec, and the main process
+      // builds it into a one-slide pptx with pptx-engine primitives.
       generatePageLocal: async (args) => {
         const W = args.canvasW
         const H = args.canvasH
@@ -1114,35 +1072,6 @@ export function AiPanel({
           }
         }
         return { ok: false, error: lastErr || tGlobal('aiErrUnknown') }
-      },
-      // Cloud single-page generation (gsk slide_generate): the cloud service owns HTML writing +
-      // pptx conversion; the deck-level style/outline stay local.
-      generatePageCloud: async (args) => {
-        try {
-          const briefParts = [args.brief]
-          if (args.layout) briefParts.push(`Layout intent: ${args.layout}`)
-          if (args.context)
-            briefParts.push(
-              `Reference material (all real names/figures/facts come from here; do not invent):\n${args.context.slice(0, 4000)}`,
-            )
-          const res = await window.slidesApi.cloudGeneratePage({
-            brief: briefParts.join('\n\n'),
-            title: args.title,
-            styleSkill: args.style,
-            deckContext: {
-              ...(args.topic ? { topic: args.topic } : {}),
-              core_hook: args.coreHook,
-              page_index: args.pageIndex,
-              total_pages: args.totalPages,
-            },
-            images: args.images.map((u) => ({ url: u })),
-            width: args.canvasW,
-            height: args.canvasH,
-          })
-          return res ?? { ok: false, error: tGlobal('aiErrUnknown') }
-        } catch (e) {
-          return { ok: false, error: e instanceof Error ? e.message : String(e) }
-        }
       },
       // ── In-tool planning: given topic+page count, the LLM produces a structured outline (batched recursion scheduled by the skill).
       // Fixes "missing pages at the input side" at the root: the main agent doesn't hand-write dozens of pages of pages JSON.
@@ -1326,9 +1255,9 @@ export function AiPanel({
         }
       },
       imageGenAvailable: () =>
-        imageGenerationAvailable(settingsRef.current, gskLoggedInRef.current),
+        imageGenerationAvailable(),
       mediaAnalysisAvailable: () =>
-        mediaAnalysisAvailable(settingsRef.current, gskLoggedInRef.current),
+        mediaAnalysisAvailable(settingsRef.current),
       unreadTextAttachments: () =>
         availableAttachments()
           .filter(
@@ -1480,22 +1409,6 @@ export function AiPanel({
             }
             return next
           })
-          // Signed-out failures get an inline sign-in button; detected via
-          // gsk status rather than matching the localized error text
-          void window.slidesApi
-            .aiGskStatus()
-            .then((status) => {
-              if (status.loggedIn) return
-              setChat((prev) => {
-                const next = [...prev]
-                const last = next.at(-1)
-                if (last?.role === 'assistant' && last.error) {
-                  next[next.length - 1] = { ...last, loginRequired: true }
-                }
-                return next
-              })
-            })
-            .catch(() => {})
           void finishHistoryBatch().finally(() => {
             setBusy(false)
             const resolveQueueRun = queueRunResolverRef.current
@@ -2201,11 +2114,6 @@ export function AiPanel({
               {entry.tools && entry.tools.length > 0 && <ToolChipList tools={entry.tools} />}
               {entry.error && (
                 <div className="ai-msg-error">{t('aiMsgError', { error: entry.error })}</div>
-              )}
-              {entry.loginRequired && (
-                <button className="ai-login-btn" onClick={() => void window.slidesApi.aiGskLogin()}>
-                  {t('aiGskLoginBtn')}
-                </button>
               )}
               {entry.deckProgress && <DeckProgressCard progress={entry.deckProgress} />}
               {showToolbar && (

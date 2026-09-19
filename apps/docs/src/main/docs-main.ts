@@ -75,13 +75,12 @@ import { parseFileToText } from '@genoffice/file-parse'
 import { convertHtmlToDocx } from '../../../../packages/html2docx/src'
 import { ElectronBrowserDriver } from '../../../../packages/html2docx/src/drivers/electron'
 import {
-  AiCreditsError,
   AiTimeoutError,
   isAiNetworkError,
   isAiOverloadedError,
   chatForProvider,
   defaultAiSettings,
-  activeProvider,
+  fetchOllamaCatalog,
   testMediaProvider,
   type AiMediaProviderConfig,
   type AiMediaProviderId,
@@ -95,17 +94,11 @@ import {
   type AiSettings,
   type AiStreamChunk,
   type AiStreamRequest,
-  type GenSparkAccountStatus,
+  type OllamaCatalog,
   type LegacyAiSettings,
 } from '@genoffice/ai-provider'
-import { listCodexModels, shutdownCodexAppServers } from '@genoffice/ai-provider/codex-app-server'
 import {
-  ensureGenofficeLogin,
-  gskApiKey,
-  generateImageTool,
   testSearchProvider,
-  gskLoginInfo,
-  hasGskAuth,
   webSearchTool,
   imageSearchTool,
 } from '@genoffice/ai-search'
@@ -2877,69 +2870,38 @@ const activeAiStreams = new Map<string, AbortController>()
  * sheets' standalone AI handlers use the same channel names.
  */
 export function registerAiIpc(): void {
-  app.once('before-quit', shutdownCodexAppServers)
   ipcMain.handle('ai:get-settings', (): AiSettings => {
     const stored = readJson<Partial<AiSettings> & LegacyAiSettings>(SETTINGS_PATH(), {})
-    // pre-lock legacy file: genspark selected with cloud tools opted out. The
-    // settings UI locks the tools switch on with genspark and apps read this
-    // file live, so heal the stored flag once. Judged on the *stored* provider
-    // — never the activeProvider fallback below, which must not leak into the
-    // file and clobber a saved (half-configured) BYOK selection.
-    if ((stored.provider ?? 'genspark') === 'genspark' && stored.gskToolsEnabled === false) {
-      stored.gskToolsEnabled = true
-      writeJson(SETTINGS_PATH(), stored)
-    }
-    const settings = resolveAiSettings(stored, defaultAiSettings())
-    // a stored BYOK provider is honored when usable; half-filled configs fall back to genspark
-    settings.provider = activeProvider(settings)
-    return settings
+    return resolveAiSettings(stored, defaultAiSettings())
   })
 
-  // Genspark account (gsk login state): auth source for AI features; the frontend uses it to prompt login when logged out
-  ipcMain.handle(
-    'ai:gsk-status',
-    async (_event, withEmail?: boolean): Promise<GenSparkAccountStatus> => {
-      if (!hasGskAuth()) return { loggedIn: false }
-      if (!withEmail) return { loggedIn: true }
-      const info = await gskLoginInfo()
-      return info?.email ? { loggedIn: true, email: info.email } : { loggedIn: true }
-    },
-  )
-
-  ipcMain.handle('ai:gsk-login', () => {
-    ensureGenofficeLogin((url) => void shell.openExternal(url))
+  // Which models the local daemon actually serves. The AI surfaces call this
+  // to tell "no model picked yet" apart from "the daemon is not running",
+  // which are the only two setup states left.
+  ipcMain.handle('ai:ollama-status', async (): Promise<OllamaCatalog> => {
+    const settings = resolveAiSettings(
+      readJson<Partial<AiSettings> & LegacyAiSettings>(SETTINGS_PATH(), {}),
+      defaultAiSettings(),
+    )
+    return fetchOllamaCatalog(settings.providers.ollama.baseUrl)
   })
 
   ipcMain.handle('ai:set-settings', (_event, settings: AiSettings) => {
     writeJson(SETTINGS_PATH(), settings)
   })
 
-  ipcMain.handle('ai:codex-models', async (_event, cliPath: unknown) => {
-    return listCodexModels(typeof cliPath === 'string' ? cliPath : undefined)
-  })
 
   ipcMain.handle('ai:stream', async (event, request: AiStreamRequest) => {
     const { requestId, settings, system, messages } = request
     const tools = request.tools ?? []
     const maxTokens = request.maxTokens ?? maxOutputTokensOf(settings)
     const provider = settings.provider
-    let config = settings.providers?.[provider]
-    // the genspark key never enters the settings file; requests take it from the gsk login state
-    if (provider === 'genspark' && config && !config.apiKey) {
-      config = { ...config, apiKey: gskApiKey() }
-    }
+    const config = settings.providers?.[provider]
     const send = (chunk: AiStreamChunk) => {
       if (!event.sender.isDestroyed()) event.sender.send('ai:stream-chunk', chunk)
     }
-    if (!config || (provider !== 'codex' && !config.apiKey)) {
-      send({
-        requestId,
-        type: 'error',
-        error: provider === 'genspark' ? tm('errGskNotLoggedIn') : tm('errNoApiKey', { provider }),
-      })
-      return
-    }
-    if (provider !== 'codex' && !config.model) {
+    // the only way to be unconfigured now is to have picked no model
+    if (!config?.model) {
       send({ requestId, type: 'error', error: tm('errNoModel') })
       return
     }
@@ -2977,13 +2939,11 @@ export function registerAiIpc(): void {
           error: err instanceof Error ? err.message : String(err),
           ...(err instanceof AiTimeoutError
             ? { errorCode: 'timeout' as const }
-            : err instanceof AiCreditsError
-              ? { errorCode: 'credits' as const }
-              : isAiNetworkError(err)
-                ? { errorCode: 'network' as const }
-                : isAiOverloadedError(err)
-                  ? { errorCode: 'overloaded' as const }
-                  : {}),
+            : isAiNetworkError(err)
+              ? { errorCode: 'network' as const }
+              : isAiOverloadedError(err)
+                ? { errorCode: 'overloaded' as const }
+                : {}),
         })
       }
     } finally {
@@ -3044,52 +3004,24 @@ export function registerAiIpc(): void {
     },
   )
 
-  // docs-owned (like pdf:generate-image): slides' ai:generate-image is only
-  // registered once a slides view exists, so docs needs its own channel
-  ipcMain.handle(
-    'docs:ai-generate-image',
-    (_event, op: { prompt?: unknown; aspectRatio?: unknown }) =>
-      generateImageTool(SETTINGS_PATH(), {
-        prompt: String(op?.prompt ?? ''),
-        aspectRatio: op?.aspectRatio ? String(op.aspectRatio) : undefined,
-      }),
-  )
 
   ipcMain.handle('ai:search-test', (_event, input: unknown) => {
     const { provider, apiKey } = (input ?? {}) as { provider?: AiSearchProviderId; apiKey?: string }
-    if (!provider || provider === 'genspark') {
-      return hasGskAuth() ? { ok: true } : { ok: false, error: tm('errGskNotLoggedIn') }
-    }
-    return testSearchProvider(provider, String(apiKey ?? ''))
+    return testSearchProvider(provider ?? 'free', String(apiKey ?? ''))
   })
 
-  // settings-UI connection test for the media provider (genspark = the gsk login state)
+  // settings-UI connection test: can we reach the daemon at the configured host?
   ipcMain.handle('ai:media-test', (_event, input: unknown) => {
-    const { provider, config } = (input ?? {}) as {
-      provider?: AiMediaProviderId
-      config?: AiMediaProviderConfig
-    }
-    if (!provider || provider === 'genspark') {
-      return hasGskAuth() ? { ok: true } : { ok: false, error: tm('errGskNotLoggedIn') }
-    }
+    const { config } = (input ?? {}) as { config?: AiMediaProviderConfig }
     if (!config) return { ok: false, error: 'No media provider configuration' }
-    return testMediaProvider(provider, config)
+    return testMediaProvider(config)
   })
 
   ipcMain.handle('ai:chat', async (_event, request: AiChatRequest) => {
     const { settings, system, user } = request
     const provider = settings.provider
-    let config = settings.providers?.[provider]
-    if (provider === 'genspark' && config && !config.apiKey) {
-      config = { ...config, apiKey: gskApiKey() }
-    }
-    if (!config || (provider !== 'codex' && !config.apiKey)) {
-      return {
-        ok: false,
-        error: provider === 'genspark' ? tm('errGskNotLoggedIn') : tm('errNoApiKey', { provider }),
-      }
-    }
-    if (provider !== 'codex' && !config.model) return { ok: false, error: tm('errNoModel') }
+    const config = settings.providers?.[provider]
+    if (!config?.model) return { ok: false, error: tm('errNoModel') }
     try {
       const result = await chatForProvider(provider, config, system, user)
       // the one-shot path reports HTTP failures as ok:false with the raw body —

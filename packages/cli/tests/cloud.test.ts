@@ -1,7 +1,6 @@
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { aiSettingsPath, proxyUrlFromEnv } from '../src/cloud'
-import { analysisText } from '../src/commands/media'
 import { resultCount } from '../src/commands/search'
 import { run } from './helpers'
 
@@ -31,16 +30,6 @@ describe('cloud command plumbing', () => {
     expect(resultCount('99')).toBe(20)
     expect(() => resultCount('lots')).toThrow()
     expect((await run(['search', 'x', '--max', 'lots', '--json'])).code).toBe(1)
-  })
-
-  it('refuses an existing --out before generating', async () => {
-    const { writeFileSync } = await import('node:fs')
-    const { tempDir } = await import('./helpers')
-    const out = join(tempDir(), 'hero.png')
-    writeFileSync(out, 'x')
-    const r = await run(['image', 'a cat', '--out', out, '--json'])
-    expect(r.code).toBe(2)
-    expect(r.json().message).toContain('output exists')
   })
 
   it('applies GENOFFICE_ALLOWED_ROOTS to --out and local --ref before any network call', async () => {
@@ -89,7 +78,6 @@ describe('cloud command plumbing', () => {
 
   it('rejects missing arguments before touching the network', async () => {
     expect((await run(['search', '--json'])).code).toBe(1)
-    expect((await run(['image', '--json'])).code).toBe(1)
     expect((await run(['media', '--json'])).code).toBe(1)
     const missing = await run(['media', '/nonexistent/photo.jpg', '--json'])
     expect(missing.code).toBe(2)
@@ -98,63 +86,11 @@ describe('cloud command plumbing', () => {
     expect(missingUrl.json().message).toContain('/nonexistent/photo.jpg')
   })
 
-  it('unwraps the Genspark per-file analysis map and leaves prose alone', () => {
-    expect(analysisText('A red square.')).toBe('A red square.')
-    expect(
-      analysisText(
-        JSON.stringify({
-          'https://x/a': { status: 'completed', analysis: ' HELLO ' },
-          'https://x/b': { status: 'completed', analysis: 'WORLD' },
-        }),
-      ),
-    ).toBe('HELLO\n\nWORLD')
-    expect(analysisText('{not json')).toBe('{not json')
-  })
-
-  it('lists the cloud commands in help', async () => {
+  it('lists the network-facing commands in help', async () => {
     const r = await run(['help'])
     expect(r.stdout).toMatch(/\bsearch\b/)
-    expect(r.stdout).toMatch(/\bimage\b/)
     expect(r.stdout).toMatch(/\bmedia\b/)
-  })
-})
-
-describe('cloud guard rails', () => {
-  it('refuses when a sibling the provider might pick already exists, before generating', async () => {
-    const { writeFileSync } = await import('node:fs')
-    const { tempDir } = await import('./helpers')
-    const dir = tempDir()
-    writeFileSync(join(dir, 'hero.jpg'), 'x')
-    const r = await run(['image', 'a cat', '--out', join(dir, 'hero.png'), '--json'])
-    expect(r.code).toBe(2)
-    expect(r.json().message).toContain('hero.jpg')
-  })
-
-  it('does not treat .jpg as a sibling of .jpeg (same format, same file kept)', async () => {
-    const { siblingExtensions } = await import('../src/commands/image')
-    expect(siblingExtensions('jpeg')).toEqual(['png', 'webp', 'gif'])
-    expect(siblingExtensions('png')).toEqual(['jpg', 'webp', 'gif'])
-    expect(siblingExtensions('bmp')).toEqual(['png', 'jpg', 'webp', 'gif'])
-  })
-
-  it('validates --aspect and --size before any network call', async () => {
-    expect((await run(['image', 'a cat', '--aspect', '5:7', '--json'])).code).toBe(1)
-    expect((await run(['image', 'a cat', '--size', '9k', '--json'])).code).toBe(1)
-  })
-
-  it('recognises a per-file provider failure', async () => {
-    const { providerFailure } = await import('../src/commands/media')
-    expect(providerFailure('plain prose')).toBeNull()
-    expect(
-      providerFailure(JSON.stringify({ 'https://x/a': { status: 'completed', analysis: 'ok' } })),
-    ).toBeNull()
-    expect(
-      providerFailure(
-        JSON.stringify({ 'https://x/a': { status: 'error', error: 'Not Found (404)' } }),
-      ),
-    ).toBe('Not Found (404)')
-    expect(
-      providerFailure(JSON.stringify({ result: { text: 'other shape' }, meta: {} })),
-    ).toBeNull()
+    // image generation has no local backend and must not be advertised
+    expect(r.stdout).not.toMatch(/^\s*image\b/m)
   })
 })

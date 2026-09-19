@@ -8,7 +8,6 @@ import { convertCommand } from './commands/convert'
 import { docsCommand } from './commands/docs'
 import { createCommand } from './commands/create'
 import { guideCommand } from './commands/guide'
-import { imageCommand } from './commands/image'
 import { mediaCommand } from './commands/media'
 import { searchCommand } from './commands/search'
 import { selectionCommand } from './commands/selection'
@@ -59,7 +58,6 @@ export function defaultRegistry(): CommandRegistry {
     .register(renderCommand)
     .register(guideCommand)
     .register(searchCommand)
-    .register(imageCommand)
     .register(mediaCommand)
     .register(openCommand)
     .register(selectionCommand)

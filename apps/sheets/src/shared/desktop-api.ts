@@ -28,7 +28,7 @@ import type {
   AiSettings,
   AiStreamChunk,
   AiStreamRequest,
-  GenSparkAccountStatus,
+  OllamaCatalog,
 } from '@genoffice/ai-provider'
 import type { AiPanelPrefs } from '@genoffice/ui'
 
@@ -2660,10 +2660,9 @@ export interface DesktopApi {
   aiStreamCancel(requestId: string): Promise<void>
   /// Genspark account status (gsk login state); withEmail also returns the email
   /// (needs a network request, slower)
-  aiGskStatus(withEmail?: boolean): Promise<GenSparkAccountStatus>
-  /// Opens the browser to sign in to Genspark (fire-and-forget; aiGskStatus
+  aiOllamaStatus(): Promise<OllamaCatalog>
+  /// Opens the browser to sign in to Genspark (fire-and-forget; aiOllamaStatus
   /// becomes signed-in on completion)
-  aiGskLogin(): Promise<void>
   /// Web search (main-process Serper/DuckDuckGo, shared with docs/slides)
   webSearch(query: string, maxResults?: number): Promise<WebSearchResult>
   /// Image search (same shared main-process channel as docs/slides)

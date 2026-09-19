@@ -71,7 +71,7 @@ import { AiPanel } from '../src/renderer/ai/AiPanel'
 import { AI_PROVIDERS, type AiSettings, type AttachmentMeta } from '../src/shared/ipc'
 
 const settings: AiSettings = {
-  provider: 'anthropic',
+  provider: 'ollama',
   providers: Object.fromEntries(
     AI_PROVIDERS.map((provider) => [provider.id, { apiKey: '', model: provider.defaultModel }]),
   ) as AiSettings['providers'],
@@ -117,7 +117,7 @@ function installSlidesApi(): void {
   Object.defineProperty(window, 'slidesApi', {
     configurable: true,
     value: {
-      aiGskStatus: vi.fn(async () => ({ loggedIn: true })),
+      aiOllamaStatus: vi.fn(async () => ({ loggedIn: true })),
       beginHistoryBatch: vi.fn(async () => false),
       endHistoryBatch: vi.fn(async () => null),
       aiLogRunFailure: vi.fn(async () => undefined),

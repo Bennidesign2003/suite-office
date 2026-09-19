@@ -17,12 +17,11 @@ import {
 } from 'node:fs'
 import { join } from 'node:path'
 import {
-  AiCreditsError,
   AiTimeoutError,
   isAiNetworkError,
   isAiOverloadedError,
   defaultAiSettings,
-  activeProvider,
+  fetchOllamaCatalog,
   maxOutputTokensOf,
   resolveAiSettings,
   setAiUserAgent,
@@ -31,20 +30,14 @@ import {
   type AiSettings,
   type AiStreamChunk,
   type AiStreamRequest,
-  type GenSparkAccountStatus,
+  type OllamaCatalog,
   type LegacyAiSettings,
 } from '@genoffice/ai-provider'
-import { shutdownCodexAppServers } from '@genoffice/ai-provider/codex-app-server'
 import { fetchRemoteImage } from '@genoffice/electron-utils'
 import {
   webSearchTool,
   imageSearchTool,
-  ensureGenofficeLogin,
-  gskApiKey,
-  generateImageTool,
   analyzeMediaTool,
-  gskLoginInfo,
-  hasGskAuth,
 } from '@genoffice/ai-search'
 import { addPicture, editPictureSrcRect, replacePictureBytes } from '@genoffice/pptx-engine'
 import { matchesElementRef } from '@genoffice/pptx-engine/identity'
@@ -102,32 +95,24 @@ function appendRunFailure(entry: AiRunFailure): void {
 }
 
 export function registerAiIpc(): void {
-  app.once('before-quit', shutdownCodexAppServers)
   // Node fetch (undici) direct connections get reset under VPN/tun setups; retry over Chromium's stack
   setRescueFetch((url, init) => net.fetch(url, init))
   setAiUserAgent(`GenOffice/${app.getVersion()}`)
 
   ipcMain.handle('ai:get-settings', (): AiSettings => {
     const stored = readJson<Partial<AiSettings> & LegacyAiSettings>(AI_SETTINGS_PATH(), {})
-    const settings = resolveAiSettings(stored, defaultAiSettings())
-    // a stored BYOK provider is honored when usable; half-filled configs fall back to genspark
-    settings.provider = activeProvider(settings)
-    return settings
+    return resolveAiSettings(stored, defaultAiSettings())
   })
 
-  // Genspark account (gsk login state): the auth source for AI features; when logged out the frontend uses this to guide login
-  ipcMain.handle(
-    'ai:gsk-status',
-    async (_event, withEmail?: boolean): Promise<GenSparkAccountStatus> => {
-      if (!hasGskAuth()) return { loggedIn: false }
-      if (!withEmail) return { loggedIn: true }
-      const info = await gskLoginInfo()
-      return info?.email ? { loggedIn: true, email: info.email } : { loggedIn: true }
-    },
-  )
-
-  ipcMain.handle('ai:gsk-login', () => {
-    ensureGenofficeLogin((url) => void shell.openExternal(url))
+  // Which models the local daemon actually serves. The AI surfaces call this
+  // to tell "no model picked yet" apart from "the daemon is not running",
+  // which are the only two setup states left.
+  ipcMain.handle('ai:ollama-status', async (): Promise<OllamaCatalog> => {
+    const settings = resolveAiSettings(
+      readJson<Partial<AiSettings> & LegacyAiSettings>(AI_SETTINGS_PATH(), {}),
+      defaultAiSettings(),
+    )
+    return fetchOllamaCatalog(settings.providers.ollama.baseUrl)
   })
 
   ipcMain.handle('ai:set-settings', (_event, settings: AiSettings) => {
@@ -143,23 +128,12 @@ export function registerAiIpc(): void {
     const tools = request.tools ?? []
     const maxTokens = request.maxTokens ?? maxOutputTokensOf(settings)
     const provider = settings.provider
-    let config = settings.providers?.[provider]
-    // The genspark key never enters the settings file; it is fetched from the gsk login state per request
-    if (provider === 'genspark' && config && !config.apiKey) {
-      config = { ...config, apiKey: gskApiKey() }
-    }
+    const config = settings.providers?.[provider]
     const send = (chunk: AiStreamChunk) => {
       if (!event.sender.isDestroyed()) event.sender.send('ai:stream-chunk', chunk)
     }
-    if (!config || (provider !== 'codex' && !config.apiKey)) {
-      send({
-        requestId,
-        type: 'error',
-        error: provider === 'genspark' ? tm('errGskNotLoggedIn') : tm('errNoApiKey', { provider }),
-      })
-      return
-    }
-    if (provider !== 'codex' && !config.model) {
+    // the only way to be unconfigured now is to have picked no model
+    if (!config?.model) {
       send({ requestId, type: 'error', error: tm('errNoModel') })
       return
     }
@@ -203,13 +177,11 @@ export function registerAiIpc(): void {
           error: msg,
           ...(err instanceof AiTimeoutError
             ? { errorCode: 'timeout' as const }
-            : err instanceof AiCreditsError
-              ? { errorCode: 'credits' as const }
-              : isAiNetworkError(err)
-                ? { errorCode: 'network' as const }
-                : isAiOverloadedError(err)
-                  ? { errorCode: 'overloaded' as const }
-                  : {}),
+            : isAiNetworkError(err)
+              ? { errorCode: 'network' as const }
+              : isAiOverloadedError(err)
+                ? { errorCode: 'overloaded' as const }
+                : {}),
         })
       }
     } finally {
@@ -255,46 +227,12 @@ export function registerAiIpc(): void {
 export function registerSlidesOnlyAiIpc(): void {
   // gsk (Genspark CLI) capabilities: AI image generation / media analysis. Returns an error prompt when not logged in.
   ipcMain.handle(
-    'ai:generate-image',
-    async (
-      _event,
-      op: {
-        prompt: string
-        model?: string
-        referenceImageUrls?: string[]
-        aspectRatio?: string
-        imageSize?: string
-        transparentBackground?: boolean
-      },
-    ) => {
-      return generateImageTool(
-        AI_SETTINGS_PATH(),
-        {
-          prompt: String(op.prompt),
-          model: op.model ? String(op.model) : undefined,
-          referenceImageUrls: Array.isArray(op.referenceImageUrls)
-            ? op.referenceImageUrls.map(String)
-            : undefined,
-          aspectRatio: op.aspectRatio ? String(op.aspectRatio) : undefined,
-          imageSize: op.imageSize ? String(op.imageSize) : undefined,
-          transparentBackground: op.transparentBackground === true,
-        },
-        { notLoggedInError: tm('errGskCli') },
-      )
-    },
-  )
-
-  ipcMain.handle(
     'ai:analyze-media',
     async (_event, op: { mediaUrls: string[]; requirements: string }) => {
-      return analyzeMediaTool(
-        AI_SETTINGS_PATH(),
-        {
-          mediaUrls: (op.mediaUrls ?? []).map(String),
-          requirements: String(op.requirements ?? ''),
-        },
-        { notLoggedInError: tm('errGskCli') },
-      )
+      return analyzeMediaTool(AI_SETTINGS_PATH(), {
+        mediaUrls: (op.mediaUrls ?? []).map(String),
+        requirements: String(op.requirements ?? ''),
+      })
     },
   )
 

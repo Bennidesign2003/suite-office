@@ -9,7 +9,7 @@ import { AiPanel } from '../src/renderer/ai/AiPanel'
 import { AI_PROVIDERS, type AiSettings } from '../src/shared/ipc'
 
 const settings: AiSettings = {
-  provider: 'anthropic',
+  provider: 'ollama',
   providers: Object.fromEntries(
     AI_PROVIDERS.map((p) => [p.id, { apiKey: '', model: p.defaultModel }]),
   ) as AiSettings['providers'],

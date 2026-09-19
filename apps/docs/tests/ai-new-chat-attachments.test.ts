@@ -13,7 +13,7 @@ import { AI_PROVIDERS, type AiSettings } from '../src/shared/ipc'
 // (availableAttachments merges sent + live composer files).
 
 const settings: AiSettings = {
-  provider: 'anthropic',
+  provider: 'ollama',
   providers: Object.fromEntries(
     AI_PROVIDERS.map((p) => [p.id, { apiKey: '', model: p.defaultModel }]),
   ) as AiSettings['providers'],
