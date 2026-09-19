@@ -7,17 +7,13 @@ import {
 } from '../src/search-settings'
 
 describe('search settings', () => {
-  it('defaults to genspark with empty keys and rides along in defaultAiSettings', () => {
+  it('defaults to the keyless chain and rides along in defaultAiSettings', () => {
     expect(defaultAiSearchSettings()).toEqual({
-      provider: 'genspark',
+      provider: 'free',
       providers: { serper: { apiKey: '' }, tavily: { apiKey: '' } },
     })
-    expect(defaultAiSettings().search?.provider).toBe('genspark')
-    const resolved = resolveAiSettings(
-      { provider: 'genspark', providers: {} as never },
-      defaultAiSettings(),
-    )
-    expect(resolved.search).toEqual(defaultAiSearchSettings())
+    expect(defaultAiSettings().search?.provider).toBe('free')
+    expect(resolveAiSettings({}).search).toEqual(defaultAiSearchSettings())
   })
 
   it('merges and trims stored keys', () => {
@@ -30,34 +26,23 @@ describe('search settings', () => {
     expect(s.providers.serper.apiKey).toBe('')
   })
 
-  it('activates a BYOK search provider only with a key', () => {
-    expect(activeSearchProvider({ search: undefined })).toBe('genspark')
-    expect(
-      activeSearchProvider({
-        search: {
-          provider: 'serper',
-          providers: { serper: { apiKey: '' }, tavily: { apiKey: '' } },
-        },
-      }),
-    ).toBe('genspark')
-    expect(
-      activeSearchProvider({
-        search: {
-          provider: 'serper',
-          providers: { serper: { apiKey: 'k' }, tavily: { apiKey: '' } },
-        },
-      }),
-    ).toBe('serper')
-    expect(
-      activeSearchProvider({
-        search: {
-          provider: 'serper',
-          providers: { serper: { apiKey: '   ' }, tavily: { apiKey: '' } },
-        },
-      }),
-    ).toBe('genspark')
+  it('falls back to the free chain for an unknown stored provider', () => {
+    expect(resolveAiSearchSettings({ provider: 'bing' as never }).provider).toBe('free')
+  })
+
+  it('activates a keyed search provider only with a key', () => {
+    expect(activeSearchProvider({ search: undefined })).toBe('free')
+    const withKey = (apiKey: string) => ({
+      search: {
+        provider: 'serper' as const,
+        providers: { serper: { apiKey }, tavily: { apiKey: '' } },
+      },
+    })
+    expect(activeSearchProvider(withKey(''))).toBe('free')
+    expect(activeSearchProvider(withKey('   '))).toBe('free')
+    expect(activeSearchProvider(withKey('k'))).toBe('serper')
     expect(activeSearchProvider({ search: { provider: 'bing', providers: {} } as never })).toBe(
-      'genspark',
+      'free',
     )
   })
 })

@@ -117,47 +117,6 @@ export async function jsonBodyInsteadOfSse(response: Response): Promise<string |
   return contentType.toLowerCase().includes('application/json') ? await response.text() : null
 }
 
-/**
- * A non-SSE JSON reply whose text is the gateway's credits-exhausted notice
- * (Genspark: "Your Genspark credits have been exhausted…") surfaces as a typed
- * error so the apps show a localized "top up" message (errorCode 'credits')
- * instead of the English notice as a normal assistant reply.
- */
-export class AiCreditsError extends Error {
-  constructor(notice: string) {
-    super(notice)
-    this.name = 'AiCreditsError'
-  }
-}
-
-function creditsNoticeText(value: unknown): string | null {
-  if (typeof value === 'string') {
-    const t = value.toLowerCase()
-    const credits =
-      t.includes('genspark.ai/pricing') ||
-      (t.includes('credit') && (t.includes('exhausted') || t.includes('insufficient')))
-    return credits ? value : null
-  }
-  if (Array.isArray(value) || (value && typeof value === 'object')) {
-    for (const v of Object.values(value)) {
-      const hit = creditsNoticeText(v)
-      if (hit) return hit
-    }
-  }
-  return null
-}
-
-export function throwIfCreditsNotice(bodyText: string): void {
-  let parsed: unknown
-  try {
-    parsed = JSON.parse(bodyText)
-  } catch {
-    return // unparseable bodies are the emit helpers' problem
-  }
-  const notice = creditsNoticeText(parsed)
-  if (notice) throw new AiCreditsError(notice)
-}
-
 /** Don't throw on parse failure (it would kill the whole stream); return error so the loop feeds it back for retry */
 export function parseToolInput(json: string): { input: Record<string, unknown>; error?: string } {
   if (!json.trim()) return { input: {} }

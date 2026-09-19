@@ -1,73 +1,86 @@
 import type { AgentMessage, AgentToolCall, AgentToolDef } from '@genoffice/agent-core'
 
-export type AiProviderId =
-  | 'genspark'
-  | 'codex'
-  | 'anthropic'
-  | 'gemini'
-  | 'deepseek'
-  | 'openai'
-  | 'kimi'
-  | 'glm'
-  | 'qwen'
-  | 'doubao'
-  | 'minimax'
-  | 'xai'
-  | 'mistral'
-  | 'openrouter'
-  | 'requesty'
-  | 'opper'
-  | 'opencode-zen'
-  | 'opencode-go'
-  | 'custom'
+/**
+ * Suite talks to exactly one backend: a local Ollama daemon. Everything the
+ * upstream project routed to hosted vendors now runs on the user's own
+ * machine, so there is a single provider id instead of a vendor catalog.
+ */
+export type AiProviderId = 'ollama'
 
-/** Genspark account status (gsk login state; the sole auth source for AI features) */
-export interface GenSparkAccountStatus {
-  loggedIn: boolean
-  email?: string
-}
+/** Default Ollama daemon root (the OpenAI-compatible surface lives under /v1) */
+export const OLLAMA_DEFAULT_HOST = 'http://127.0.0.1:11434'
 
 export interface AiProviderConfig {
+  /**
+   * Blank for a plain local daemon. Ollama itself ignores Authorization, but a
+   * reverse proxy in front of it (or a remote host on the LAN) may require one.
+   */
   apiKey: string
   model: string
-  /** required for custom; for other direct providers it overrides the default endpoint (regional mirrors) */
+  /** daemon root; empty means OLLAMA_DEFAULT_HOST */
   baseUrl?: string | undefined
-  /** optional Codex CLI override; empty means auto-detect the current authenticated install */
-  cliPath?: string | undefined
 }
 
-/** Live picker data returned by Codex app-server's model/list method. */
-export interface CodexModelCatalog {
-  models: string[]
-  defaultModel: string
+/** One entry of the local daemon's model list (GET /api/tags). */
+export interface OllamaModelInfo {
+  /** the id to put in `model`, e.g. "qwen3.5:latest" */
+  name: string
+  /** "9.7B" and friends, straight from the daemon */
+  parameterSize?: string | undefined
+  quantization?: string | undefined
+  /** training context window in tokens, when the daemon reports it */
+  contextLength?: number | undefined
+  sizeBytes?: number | undefined
+  /** raw capability list as reported ("vision", "tools", "thinking", "completion", ...) */
+  capabilities: string[]
+  /** accepts image input */
+  vision: boolean
+  /** can emit tool calls — required for the agent loop, so the picker warns without it */
+  tools: boolean
+  /** emits reasoning before the answer */
+  thinking: boolean
+}
+
+/**
+ * Live picker data. Replaces the hardcoded per-vendor model arrays upstream
+ * carried: which models exist is a property of the user's machine, not of a
+ * list we can ship.
+ */
+export interface OllamaCatalog {
+  reachable: boolean
+  /** the daemon root the catalog was read from */
+  baseUrl: string
+  /** daemon version from GET /api/version */
+  version?: string | undefined
+  models: OllamaModelInfo[]
+  /** why the daemon could not be reached (only set when reachable is false) */
+  error?: string | undefined
 }
 
 export interface AiProviderMeta {
   id: AiProviderId
   label: string
+  /** always empty: the catalog is discovered at runtime, never shipped */
   models: string[]
   defaultModel: string
   keyPlaceholder: string
   needsBaseUrl?: boolean
-  needsCliPath?: boolean
 }
 
-/** Image generation / media analysis backends (separate from the chat provider) */
-export type AiMediaProviderId =
-  'genspark' | 'openai' | 'gemini' | 'doubao' | 'glm' | 'xai' | 'qwen' | 'minimax' | 'custom'
+/**
+ * Media backends. Ollama serves vision models, so image *analysis* works
+ * locally; it has no image *generation* endpoint, so that capability is gone
+ * rather than pointed at a cloud vendor.
+ */
+export type AiMediaProviderId = 'ollama'
 
-/** wire shape of the image endpoint */
-export type AiImageProtocol = 'openai-images' | 'gemini' | 'dashscope' | 'minimax'
 /** wire shape of the understanding endpoint */
-export type AiAnalysisProtocol = 'openai-chat' | 'gemini'
+export type AiAnalysisProtocol = 'openai-chat'
 
 export interface AiMediaProviderConfig {
   apiKey: string
-  /** required for custom; for the others it overrides the official endpoint (regional mirrors) */
   baseUrl?: string | undefined
-  /** image generation model (empty = the provider default) */
-  imageModel: string
-  /** image/video understanding model (empty = the provider default) */
+  /** vision model used by analyze_media (empty = reuse the chat model) */
   analysisModel: string
 }
 
@@ -78,34 +91,25 @@ export interface AiMediaProviderMeta {
   description: string
   keyPlaceholder: string
   needsBaseUrl?: boolean
-  /** '' for genspark (gsk login) and custom (user-supplied) */
   defaultBaseUrl: string
-  /** absent = the provider does not generate images */
-  imageProtocol?: AiImageProtocol
-  imageModels: string[]
-  defaultImageModel: string
-  /** absent = the provider does not analyze media */
-  analysisProtocol?: AiAnalysisProtocol
+  analysisProtocol: AiAnalysisProtocol
+  /** discovered at runtime like the chat catalog */
   analysisModels: string[]
   defaultAnalysisModel: string
-  /** the analysis model accepts video input (Gemini natively; OpenAI-compatible vendors via a video_url part) */
-  videoAnalysis: boolean
 }
 
 export interface AiMediaSettings {
-  /** provider behind generate_image */
-  imageProvider: AiMediaProviderId
-  /** provider behind analyze_media for images */
+  /** provider behind analyze_media */
   analysisProvider: AiMediaProviderId
-  /** provider behind analyze_media when the input has video/audio (only video-capable vendors qualify) */
-  videoAnalysisProvider: AiMediaProviderId
   providers: Record<AiMediaProviderId, AiMediaProviderConfig>
-  /** pre-catalog shape (one provider for both); migrated by resolveAiMediaSettings */
-  provider?: AiMediaProviderId | undefined
 }
 
-/** web/image search backends: Genspark (gsk) or a user key for Serper / Tavily */
-export type AiSearchProviderId = 'genspark' | 'serper' | 'tavily'
+/**
+ * Web/image search backends. 'free' is the keyless chain (DuckDuckGo and
+ * friends) and is the default, so a stock install reaches the web without any
+ * account at all; Serper and Tavily stay available for users who have a key.
+ */
+export type AiSearchProviderId = 'free' | 'serper' | 'tavily'
 
 export interface AiSearchProviderMeta {
   id: AiSearchProviderId
@@ -117,27 +121,16 @@ export interface AiSearchProviderMeta {
 
 export interface AiSearchSettings {
   provider: AiSearchProviderId
-  providers: Record<Exclude<AiSearchProviderId, 'genspark'>, { apiKey: string }>
+  providers: Record<Exclude<AiSearchProviderId, 'free'>, { apiKey: string }>
 }
 
 export interface AiSettings {
   provider: AiProviderId
   providers: Record<AiProviderId, AiProviderConfig>
-  /**
-   * Provider for generate_image / analyze_media. Absent (pre-media settings
-   * files) means Genspark, i.e. the gsk login + gskToolsEnabled gate.
-   */
+  /** provider for analyze_media; absent means the Ollama defaults */
   media?: AiMediaSettings | undefined
-  /** web/image search backend; absent means Genspark (gsk when signed in, then the free chain) */
+  /** web/image search backend; absent means the keyless chain */
   search?: AiSearchSettings | undefined
-  /**
-   * Genspark cloud tools (web/image search via gsk, image generation, media
-   * analysis). Default true; false makes tools skip the gsk backend entirely
-   * (search falls back to free sources, gsk-only tools are unavailable).
-   * Only meaningful while signed in — signed out, the gsk backend is
-   * unavailable regardless.
-   */
-  gskToolsEnabled?: boolean
   /**
    * Output-token cap for ONE model turn of agent runs (default
    * DEFAULT_MAX_OUTPUT_TOKENS). Reasoning models bill their thinking against
@@ -148,11 +141,18 @@ export interface AiSettings {
   maxOutputTokens?: number | undefined
 }
 
-/** pre-provider settings shape (single OpenAI-compatible endpoint); migrated into "custom" */
+/**
+ * Pre-Suite settings shapes we still read: the upstream multi-vendor file (a
+ * `provider` id plus a bag of per-vendor configs, of which only a
+ * custom/OpenAI-compatible entry could have pointed at Ollama) and the even
+ * older single-endpoint file. Migration is one-way and lossy on purpose —
+ * cloud keys are dropped, not carried over.
+ */
 export interface LegacyAiSettings {
   baseUrl?: string
   apiKey?: string
   model?: string
+  providers?: Record<string, { apiKey?: string; model?: string; baseUrl?: string }>
 }
 
 export interface AiChatRequest {
@@ -187,8 +187,9 @@ export interface AiStreamChunk {
   /** complete parsed tool call (emitted once its arguments finish streaming) */
   toolCall?: AgentToolCall
   error?: string
-  /** machine-readable error cause ('timeout', exhausted 'credits', 'network' connectivity failure, 'overloaded' capacity/rate limit); lets the renderer localize the message */
-  errorCode?: 'timeout' | 'credits' | 'network' | 'overloaded'
+  /** machine-readable error cause ('timeout', 'network' connectivity failure — including a daemon
+   * that is not running, 'overloaded' when the daemon is still loading a model) */
+  errorCode?: 'timeout' | 'network' | 'overloaded'
   /** normalized stop reason carried on 'done' ('max_tokens' = output cut off by the token limit) */
   stopReason?: string
 }

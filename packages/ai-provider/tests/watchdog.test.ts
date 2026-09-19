@@ -98,8 +98,8 @@ describe('stream timeouts end to end', () => {
     )
     const { cb } = collector()
     const run = streamForProvider(
-      'anthropic',
-      { apiKey: 'k', model: 'claude-sonnet-5' },
+      'ollama',
+      { apiKey: 'k', model: 'llama3.2' },
       'system',
       [{ role: 'user', text: 'hi' }],
       [],
@@ -119,11 +119,7 @@ describe('stream timeouts end to end', () => {
         const signal = init.signal!
         const body = new ReadableStream<Uint8Array>({
           start(controller) {
-            controller.enqueue(
-              encoder.encode(
-                'data: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"hi"}}\n',
-              ),
-            )
+            controller.enqueue(encoder.encode('data: {"choices":[{"delta":{"content":"hi"}}]}\n'))
             // stays open forever; reads reject once the watchdog aborts
             signal.addEventListener('abort', () => controller.error(new Error('aborted')))
           },
@@ -133,8 +129,8 @@ describe('stream timeouts end to end', () => {
     )
     const { deltas, cb } = collector()
     const run = streamForProvider(
-      'anthropic',
-      { apiKey: 'k', model: 'claude-sonnet-5' },
+      'ollama',
+      { apiKey: 'k', model: 'llama3.2' },
       'system',
       [{ role: 'user', text: 'hi' }],
       [],
@@ -163,8 +159,8 @@ describe('stream timeouts end to end', () => {
     )
     const onActivity = vi.fn()
     const run = streamForProvider(
-      'anthropic',
-      { apiKey: 'k', model: 'claude-sonnet-5' },
+      'ollama',
+      { apiKey: 'k', model: 'llama3.2' },
       'system',
       [{ role: 'user', text: 'hi' }],
       [],

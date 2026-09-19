@@ -203,7 +203,7 @@ describe('webSearch (SearchOptions)', () => {
       seen.push(String((init?.headers as Record<string, string>)['X-API-KEY']))
       return { ok: true, json: { organic: [{ title: 'A', link: 'https://a.com', snippet: 's' }] } }
     })
-    const r = await webSearch('q', 3, { useGsk: false, serperKey: 'user-key' })
+    const r = await webSearch('q', 3, { serperKey: 'user-key' })
     expect(r.method).toBe('serper')
     expect(seen).toEqual(['user-key'])
   })
@@ -215,7 +215,6 @@ describe('webSearch (SearchOptions)', () => {
       return { ok: true, json: { results: [{ title: 'T', url: 'https://t.com', content: 'c' }] } }
     })
     const r = await webSearch('q', 3, {
-      useGsk: false,
       tavilyKey: 'tv',
       serperKey: 'sp',
       prefer: 'tavily',
@@ -228,10 +227,7 @@ describe('webSearch (SearchOptions)', () => {
 describe('search-tools', () => {
   it('maps the settings block onto SearchOptions', () => {
     const base = defaultAiSettings()
-    expect(searchOptionsFromSettings(base)).toEqual({ useGsk: true })
-    expect(searchOptionsFromSettings({ ...base, gskToolsEnabled: false })).toEqual({
-      useGsk: false,
-    })
+    expect(searchOptionsFromSettings(base)).toEqual({})
     const serper = {
       ...base,
       search: {
@@ -239,7 +235,7 @@ describe('search-tools', () => {
         providers: { serper: { apiKey: 'k' }, tavily: { apiKey: '' } },
       },
     }
-    expect(searchOptionsFromSettings(serper)).toEqual({ useGsk: false, serperKey: 'k' })
+    expect(searchOptionsFromSettings(serper)).toEqual({ serperKey: 'k' })
     const tavily = {
       ...base,
       search: {
@@ -248,11 +244,10 @@ describe('search-tools', () => {
       },
     }
     expect(searchOptionsFromSettings(tavily)).toEqual({
-      useGsk: false,
       tavilyKey: 't',
       prefer: 'tavily',
     })
-    // no key → genspark chain
+    // no key → the keyless chain
     const empty = {
       ...base,
       search: {
@@ -260,7 +255,7 @@ describe('search-tools', () => {
         providers: { serper: { apiKey: '' }, tavily: { apiKey: '' } },
       },
     }
-    expect(searchOptionsFromSettings(empty)).toEqual({ useGsk: true })
+    expect(searchOptionsFromSettings(empty)).toEqual({})
   })
 
   it('reports a rejected key as a failure instead of the silent free fallback', async () => {

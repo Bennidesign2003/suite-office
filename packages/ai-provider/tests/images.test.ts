@@ -7,7 +7,7 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
-const config = { apiKey: 'test-key', model: 'test-model' }
+const config = { apiKey: '', model: 'qwen3.5:latest' }
 
 function callbacks() {
   return {
@@ -17,66 +17,53 @@ function callbacks() {
   }
 }
 
-/** run one turn against a stubbed fetch and return the parsed request body */
-async function requestBodyFor(
-  provider: 'anthropic' | 'gemini',
-  messages: AgentMessage[],
-): Promise<any> {
-  const fetchMock = vi.fn().mockResolvedValue(okResponse(sseStream([])))
+const IMAGE = { mime: 'image/png', base64: 'AAA' }
+
+/** run one turn against a stubbed daemon and hand back the request body it sent */
+async function requestBody(messages: AgentMessage[]): Promise<{
+  messages: { role: string; content: unknown }[]
+}> {
+  const fetchMock = vi
+    .fn()
+    .mockResolvedValue(
+      okResponse(
+        sseStream(['data: {"choices":[{"delta":{"content":"ok"},"finish_reason":"stop"}]}']),
+      ),
+    )
   vi.stubGlobal('fetch', fetchMock)
-  // the empty fixture stream legitimately rejects with "returned no content";
-  // these tests only inspect the outgoing request body
-  await streamForProvider(provider, config, 'sys', messages, [], 1024, callbacks()).catch(() => {})
-  return JSON.parse(fetchMock.mock.calls[0][1].body as string)
+  await streamForProvider('ollama', config, 'sys', messages, [], 1024, callbacks())
+  return JSON.parse((fetchMock.mock.calls[0]![1] as RequestInit).body as string)
 }
 
-const IMAGE = { base64: 'aGVsbG8=', mime: 'image/png' }
-
-describe('anthropic user message with images', () => {
-  it('sends a content array of text + image blocks', async () => {
-    const body = await requestBodyFor('anthropic', [
-      { role: 'user', text: 'look at this image', images: [IMAGE] },
-    ])
-    expect(body.messages[0]).toEqual({
+describe('image input', () => {
+  it('sends text and image as separate content parts', async () => {
+    const body = await requestBody([{ role: 'user', text: 'what is this?', images: [IMAGE] }])
+    expect(body.messages[1]).toEqual({
       role: 'user',
       content: [
-        { type: 'text', text: 'look at this image' },
-        {
-          type: 'image',
-          source: { type: 'base64', media_type: 'image/png', data: 'aGVsbG8=' },
-        },
+        { type: 'text', text: 'what is this?' },
+        { type: 'image_url', image_url: { url: 'data:image/png;base64,AAA' } },
       ],
     })
   })
 
-  it('omits the text block when text is empty', async () => {
-    const body = await requestBodyFor('anthropic', [{ role: 'user', text: '', images: [IMAGE] }])
-    expect(body.messages[0].content).toHaveLength(1)
-    expect(body.messages[0].content[0].type).toBe('image')
-  })
-
-  it('keeps plain string content when no images (existing behavior)', async () => {
-    const body = await requestBodyFor('anthropic', [{ role: 'user', text: 'hi' }])
-    expect(body.messages[0]).toEqual({ role: 'user', content: 'hi' })
-  })
-})
-
-describe('gemini user message with images', () => {
-  it('sends parts with text + inline_data', async () => {
-    const body = await requestBodyFor('gemini', [
-      { role: 'user', text: 'look at this image', images: [IMAGE] },
-    ])
-    expect(body.contents[0]).toEqual({
+  it('omits the text part when the turn is an image alone', async () => {
+    const body = await requestBody([{ role: 'user', text: '', images: [IMAGE] }])
+    expect(body.messages[1]).toEqual({
       role: 'user',
-      parts: [
-        { text: 'look at this image' },
-        { inline_data: { mime_type: 'image/png', data: 'aGVsbG8=' } },
-      ],
+      content: [{ type: 'image_url', image_url: { url: 'data:image/png;base64,AAA' } }],
     })
   })
 
-  it('keeps single text part when no images (existing behavior)', async () => {
-    const body = await requestBodyFor('gemini', [{ role: 'user', text: 'hi' }])
-    expect(body.contents[0]).toEqual({ role: 'user', parts: [{ text: 'hi' }] })
+  it('keeps a plain text turn a plain string, not a one-element part array', async () => {
+    const body = await requestBody([{ role: 'user', text: 'hi' }])
+    expect(body.messages[1]).toEqual({ role: 'user', content: 'hi' })
+  })
+
+  it('sends every image of a multi-image turn', async () => {
+    const body = await requestBody([
+      { role: 'user', text: 'compare', images: [IMAGE, { mime: 'image/jpeg', base64: 'BBB' }] },
+    ])
+    expect(body.messages[1].content).toHaveLength(3)
   })
 })

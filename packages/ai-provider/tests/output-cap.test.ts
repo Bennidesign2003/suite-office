@@ -74,8 +74,8 @@ describe('streamForProvider: output cap fallback', () => {
       .mockImplementation(() => Promise.resolve(okTurn()))
     vi.stubGlobal('fetch', fetchMock)
     const config = { apiKey: 'k', model: 'kimi-k3' }
-    await streamForProvider('kimi', config, 'sys', [], [], 32768, cb())
-    await streamForProvider('kimi', config, 'sys', [], [], 32768, cb())
+    await streamForProvider('ollama', config, 'sys', [], [], 32768, cb())
+    await streamForProvider('ollama', config, 'sys', [], [], 32768, cb())
     const sent = bodies(fetchMock).map((b) => b.max_tokens)
     expect(sent).toEqual([32768, 16384, 16384])
   })
@@ -86,9 +86,9 @@ describe('streamForProvider: output cap fallback', () => {
       .mockImplementationOnce(() => Promise.resolve(rejection()))
       .mockImplementation(() => Promise.resolve(okTurn()))
     vi.stubGlobal('fetch', fetchMock)
-    await streamForProvider('kimi', { apiKey: 'k', model: 'kimi-k3' }, 'sys', [], [], 32768, cb())
-    await streamForProvider('kimi', { apiKey: 'k', model: 'kimi-k3' }, 'sys', [], [], 4096, cb())
-    await streamForProvider('kimi', { apiKey: 'k', model: 'kimi-k4' }, 'sys', [], [], 32768, cb())
+    await streamForProvider('ollama', { apiKey: 'k', model: 'kimi-k3' }, 'sys', [], [], 32768, cb())
+    await streamForProvider('ollama', { apiKey: 'k', model: 'kimi-k3' }, 'sys', [], [], 4096, cb())
+    await streamForProvider('ollama', { apiKey: 'k', model: 'kimi-k4' }, 'sys', [], [], 32768, cb())
     expect(bodies(fetchMock).map((b) => b.max_tokens)).toEqual([32768, 16384, 4096, 32768])
   })
 
@@ -100,7 +100,7 @@ describe('streamForProvider: output cap fallback', () => {
       )
     vi.stubGlobal('fetch', fetchMock)
     await expect(
-      streamForProvider('kimi', { apiKey: 'k', model: 'kimi-k9' }, 'sys', [], [], 32768, cb()),
+      streamForProvider('ollama', { apiKey: 'k', model: 'kimi-k9' }, 'sys', [], [], 32768, cb()),
     ).rejects.toThrow(/HTTP 400/)
     expect(fetchMock).toHaveBeenCalledTimes(1)
   })

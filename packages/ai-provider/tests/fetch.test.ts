@@ -18,7 +18,7 @@ describe('aiFetch', () => {
     vi.stubGlobal('fetch', fetchMock)
     await aiFetch('https://x/', { headers: { Authorization: 'Bearer k' } })
     const headers = sentHeaders(fetchMock)
-    expect(headers.get('user-agent')).toBe('GenOffice')
+    expect(headers.get('user-agent')).toBe('Suite')
     expect(headers.get('authorization')).toBe('Bearer k')
   })
 
@@ -39,7 +39,7 @@ describe('aiFetch', () => {
     const rescue = vi.fn().mockResolvedValue(new Response('rescued'))
     setRescueFetch(rescue)
     await aiFetch('https://x/', {})
-    expect(sentHeaders(rescue).get('user-agent')).toBe('GenOffice')
+    expect(sentHeaders(rescue).get('user-agent')).toBe('Suite')
   })
 
   it('returns the primary response without touching the rescue path', async () => {
@@ -81,14 +81,14 @@ describe('aiFetch', () => {
     const ok = new Response('{}', { headers: { 'content-type': 'application/json' } })
     const rescue = vi.fn().mockResolvedValue(ok)
     setRescueFetch(rescue)
-    expect(await aiFetch('https://www.genspark.ai/api/x', { method: 'POST', body: '{}' })).toBe(ok)
+    expect(await aiFetch('https://ollama.internal/v1/x', { method: 'POST', body: '{}' })).toBe(ok)
     expect(rescue).toHaveBeenCalledOnce()
 
     // still blocked on the rescue path: the primary answer stands
     const primary = blocked()
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(primary))
     setRescueFetch(vi.fn().mockResolvedValue(blocked()))
-    expect(await aiFetch('https://www.genspark.ai/api/x', { body: '{}' })).toBe(primary)
+    expect(await aiFetch('https://ollama.internal/v1/x', { body: '{}' })).toBe(primary)
   })
 
   it('does not treat an API 403 or a stream body as a block page', async () => {

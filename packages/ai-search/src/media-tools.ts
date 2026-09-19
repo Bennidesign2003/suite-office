@@ -1,40 +1,34 @@
 /**
- * generate_image / analyze_media for the five editors' main processes: one
- * place that reads ai-settings.json live, routes to the BYOK media provider
- * when one is configured, and otherwise to the Genspark CLI behind the usual
- * login + cloud-tools gate. BYOK providers answer with bytes; those land in
- * the local generated-image store and come back as a file:// URL that the
- * insert pipelines' fetchRemoteImage accepts.
+ * analyze_media for the editors: one place that reads ai-settings.json live
+ * and hands the bytes to a local Ollama vision model.
+ *
+ * There is no generate_image counterpart any more. Ollama serves no image
+ * *output* endpoint, and reaching for a hosted one would undo the whole point
+ * of the fork, so the tool is gone rather than degraded.
  */
 
 import { existsSync, readFileSync, statSync } from 'node:fs'
 import { basename, extname } from 'node:path'
 import {
-  activeMediaConfig,
   analyzeMediaWithProvider,
-  cloudToolsEnabled,
   defaultAiSettings,
-  generateImageWithProvider,
+  mediaAnalysisModel,
   resolveAiSettings,
   type AiSettings,
   type LegacyAiSettings,
   type MediaBlob,
 } from '@genoffice/ai-provider'
-// deep imports: the package root re-exports Electron-bound modules, and this file also runs in the genoffice CLI
+// deep imports: the package root re-exports host-bound modules, and this file also runs in the CLI
 import { readGeneratedImage, storeGeneratedImage } from '@genoffice/electron-utils/generated-images'
 import { fetchRemoteImage } from '@genoffice/electron-utils/remote-image'
 import { fetchWithSsrfGuard } from '@genoffice/electron-utils/safe-remote-url'
-import { gskAnalyzeMedia, gskGenerateImage, hasGskAuth, type GskGenerateImageOptions } from './gsk'
 
-export const GSK_NOT_LOGGED_IN_ERROR =
-  'Genspark account is not logged in on this machine; ask the user to log in first'
-export const GSK_TOOLS_OFF_ERROR =
-  'Genspark cloud tools are turned off in Settings (AI Model); enable them or configure an image provider under Settings (AI Media) to use this tool'
+export const NO_VISION_MODEL_ERROR =
+  'No Ollama vision model is configured; pick one under Settings (AI) to use this tool'
 
-/** 200 MB: enough for a long clip through the Gemini Files API, small enough to hold in memory */
+/** 200 MB: bigger than any screenshot, small enough to hold in memory */
 const MAX_MEDIA_BYTES = 200 * 1024 * 1024
 
-/** the only load failure that may hand the request back to Genspark; validation failures never do */
 export class MediaTooLargeError extends Error {}
 
 const MIME_BY_EXT: Record<string, string> = {
@@ -45,17 +39,6 @@ const MIME_BY_EXT: Record<string, string> = {
   '.webp': 'image/webp',
   '.bmp': 'image/bmp',
   '.heic': 'image/heic',
-  '.mp4': 'video/mp4',
-  '.mov': 'video/quicktime',
-  '.webm': 'video/webm',
-  '.m4v': 'video/mp4',
-  '.mkv': 'video/x-matroska',
-  '.mp3': 'audio/mpeg',
-  '.wav': 'audio/wav',
-  '.m4a': 'audio/mp4',
-  '.aac': 'audio/aac',
-  '.ogg': 'audio/ogg',
-  '.flac': 'audio/flac',
 }
 
 export function readAiSettingsFile(path: string): AiSettings {
@@ -68,24 +51,15 @@ export function readAiSettingsFile(path: string): AiSettings {
   return resolveAiSettings(stored, defaultAiSettings())
 }
 
-type Gate = { error: string } | null
-
-/** the Genspark route's preconditions; null when it may proceed */
-function gskGate(settings: AiSettings, notLoggedInError: string): Gate {
-  if (!hasGskAuth()) return { error: notLoggedInError }
-  if (!cloudToolsEnabled(settings)) return { error: GSK_TOOLS_OFF_ERROR }
-  return null
-}
-
 function errorText(err: unknown): string {
   return err instanceof Error ? err.message : String(err)
 }
 
 /**
  * Resolves a tool-supplied media reference to bytes: an https URL (SSRF-guarded),
- * a file:// URL from the generated-image store, or a local media file
- * (attachments). Only media extensions are read locally — the model must not be
- * able to ship arbitrary files to a vendor.
+ * a file:// URL from the generated-image store, or a local image file
+ * (attachments). Only image extensions are read locally — the model must not be
+ * able to ship arbitrary files anywhere.
  */
 export async function loadMediaReference(ref: string): Promise<MediaBlob> {
   if (/^https?:\/\//i.test(ref)) {
@@ -113,7 +87,7 @@ export async function loadMediaReference(ref: string): Promise<MediaBlob> {
     return { bytes: new Uint8Array(local.bytes), mime: local.mime }
   }
   const mime = MIME_BY_EXT[extname(ref).toLowerCase()]
-  if (!mime) throw new Error(`Unsupported media file: ${ref} (images, video and audio only)`)
+  if (!mime) throw new Error(`Unsupported media file: ${ref} (images only)`)
   if (!existsSync(ref)) throw new Error(`File not found: ${ref}`)
   if (statSync(ref).size > MAX_MEDIA_BYTES) {
     throw new MediaTooLargeError(`${ref} is too large to analyze`)
@@ -121,98 +95,24 @@ export async function loadMediaReference(ref: string): Promise<MediaBlob> {
   return { bytes: new Uint8Array(readFileSync(ref)), mime, name: basename(ref) }
 }
 
-export interface MediaToolOptions {
-  /** localized replacement for the default signed-out message */
-  notLoggedInError?: string
-}
-
-/** Genspark background-removal model — chained after generation for transparentBackground */
-export const GSK_RMBG_MODEL = 'fal-bria-rmbg'
-
-export type GenerateImageToolOp = GskGenerateImageOptions & {
-  /** The result must have real PNG alpha (icons/logos/cutouts). Generation models cannot
-   * produce transparency from the prompt alone — they paint a fake gray checkerboard into
-   * the pixels — so the tool strips the background in a second pass instead. */
-  transparentBackground?: boolean
-}
-
-export async function generateImageTool(
-  settingsPath: string,
-  op: GenerateImageToolOp,
-  options: MediaToolOptions = {},
-): Promise<{ url?: string; error?: string }> {
-  const prompt = String(op.prompt ?? '').trim()
-  if (!prompt) return { error: 'prompt must not be empty' }
-  const settings = readAiSettingsFile(settingsPath)
-  const byok = activeMediaConfig(settings, 'image')
-  try {
-    if (!byok) {
-      const gate = gskGate(settings, options.notLoggedInError ?? GSK_NOT_LOGGED_IN_ERROR)
-      if (gate) return gate
-      const gen = await gskGenerateImage({ ...op, prompt })
-      if (!op.transparentBackground || op.model === GSK_RMBG_MODEL) return { url: gen.url }
-      try {
-        const cut = await gskGenerateImage({
-          prompt: 'remove the background completely, keep only the subject',
-          model: GSK_RMBG_MODEL,
-          referenceImageUrls: [gen.url],
-        })
-        return { url: cut.url }
-      } catch {
-        return { url: gen.url } // strip failed: the opaque image is still usable
-      }
-    }
-    // `model` names Genspark-only special models (fal-*); BYOK uses the configured image model
-    const references = await Promise.all((op.referenceImageUrls ?? []).map(loadMediaReference))
-    const image = await generateImageWithProvider(byok.provider, byok.config, {
-      prompt,
-      aspectRatio: op.aspectRatio,
-      references,
-      transparent: op.transparentBackground === true,
-    })
-    return { url: storeGeneratedImage(image.bytes, image.mime) }
-  } catch (err) {
-    return { error: errorText(err) }
-  }
-}
-
 export async function analyzeMediaTool(
   settingsPath: string,
   op: { mediaUrls: string[]; requirements: string },
-  options: MediaToolOptions = {},
 ): Promise<{ text?: string; error?: string }> {
   const mediaUrls = (op.mediaUrls ?? []).map(String).filter(Boolean)
   const requirements = String(op.requirements ?? '').trim()
   if (!mediaUrls.length) return { error: 'mediaUrls must not be empty' }
   if (!requirements) return { error: 'requirements must not be empty' }
   const settings = readAiSettingsFile(settingsPath)
-  const imageByok = activeMediaConfig(settings, 'analysis')
-  const videoByok = activeMediaConfig(settings, 'video')
+  const model = mediaAnalysisModel(settings)
+  if (!model) return { error: NO_VISION_MODEL_ERROR }
+  const config = settings.media!.providers.ollama
   try {
-    const viaGsk = async () => {
-      const gate = gskGate(settings, options.notLoggedInError ?? GSK_NOT_LOGGED_IN_ERROR)
-      if (gate) return gate
-      return { text: await gskAnalyzeMedia({ mediaUrls, requirements }) }
-    }
-    if (!imageByok && !videoByok) return await viaGsk()
-    // route on the loaded bytes' real MIME, not the URL spelling: images go to the
-    // image-analysis provider, anything with video/audio to the video one
-    let media: MediaBlob[]
-    try {
-      media = await Promise.all(mediaUrls.map(loadMediaReference))
-    } catch (err) {
-      // only the size cap hands the request back to Genspark (the CLI streams large
-      // files itself); scheme / path / SSRF rejections stay rejections
-      if (err instanceof MediaTooLargeError && (!imageByok || !videoByok)) return await viaGsk()
-      return { error: errorText(err) }
-    }
-    const hasVideo = media.some((m) => !m.mime.startsWith('image/'))
-    const byok = hasVideo ? videoByok : imageByok
-    if (!byok) return await viaGsk()
-    return {
-      text: await analyzeMediaWithProvider(byok.provider, byok.config, { media, requirements }),
-    }
+    const media = await Promise.all(mediaUrls.map(loadMediaReference))
+    return { text: await analyzeMediaWithProvider(config, model, { media, requirements }) }
   } catch (err) {
     return { error: errorText(err) }
   }
 }
+
+export { storeGeneratedImage }

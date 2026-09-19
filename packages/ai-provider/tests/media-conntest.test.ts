@@ -1,57 +1,37 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { testMediaProvider } from '../src/media-protocols'
 
-afterEach(() => {
-  vi.unstubAllGlobals()
-})
+afterEach(() => vi.unstubAllGlobals())
 
-function errorResponse(body: unknown, status: number): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { 'content-type': 'application/json' },
-  })
-}
-
-const config = { apiKey: 'sk-test', imageModel: '', analysisModel: '' }
-
-describe('testMediaProvider connection test', () => {
-  it('treats 404 as ok (vendor without a model-listing endpoint)', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async () => errorResponse({ error: 'not found' }, 404)),
+describe('testMediaProvider', () => {
+  it('passes when the daemon lists its models', async () => {
+    const fetchMock = vi.fn(
+      async (_url: string, _init?: RequestInit) => new Response('{"data":[]}', { status: 200 }),
     )
-    const result = await testMediaProvider('openai', config)
-    expect(result).toEqual({ ok: true })
+    vi.stubGlobal('fetch', fetchMock)
+    expect(await testMediaProvider({ apiKey: '', analysisModel: '' })).toEqual({ ok: true })
+    expect(fetchMock.mock.calls[0]![0]).toBe('http://127.0.0.1:11434/v1/models')
   })
 
-  it('treats 405 as ok (vendor without a model-listing endpoint)', async () => {
+  it('surfaces the status and body when a proxy rejects the key', async () => {
     vi.stubGlobal(
       'fetch',
-      vi.fn(async () => errorResponse({ error: 'method not allowed' }, 405)),
+      vi.fn(async (_url: string, _init?: RequestInit) => new Response('bad key', { status: 401 })),
     )
-    const result = await testMediaProvider('openai', config)
-    expect(result).toEqual({ ok: true })
+    const r = await testMediaProvider({ apiKey: 'nope', analysisModel: '' })
+    expect(r.ok).toBe(false)
+    expect(r.error).toContain('HTTP 401')
+    expect(r.error).toContain('bad key')
   })
 
-  it('surfaces 429 rate limits as ok:false with status and rate-limit wording', async () => {
+  it('reports a stopped daemon instead of throwing', async () => {
     vi.stubGlobal(
       'fetch',
-      vi.fn(async () => errorResponse({ error: { message: 'too many requests' } }, 429)),
+      vi.fn(async (_url: string, _init?: RequestInit) => {
+        throw new TypeError('fetch failed')
+      }),
     )
-    const result = await testMediaProvider('openai', config)
-    expect(result.ok).toBe(false)
-    expect(result.error).toMatch(/429/)
-    expect(result.error).toMatch(/rate limit/i)
-  })
-
-  it('surfaces 500 server errors as ok:false with status and server-error wording', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async () => errorResponse({ error: { message: 'internal error' } }, 500)),
-    )
-    const result = await testMediaProvider('openai', config)
-    expect(result.ok).toBe(false)
-    expect(result.error).toMatch(/500/)
-    expect(result.error).toMatch(/server error/i)
+    const r = await testMediaProvider({ apiKey: '', analysisModel: '' })
+    expect(r).toEqual({ ok: false, error: 'fetch failed' })
   })
 })

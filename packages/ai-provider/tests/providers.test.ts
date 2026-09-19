@@ -5,361 +5,126 @@ import {
   MAX_MAX_OUTPUT_TOKENS,
   MIN_MAX_OUTPUT_TOKENS,
   activeProvider,
+  aiConfigured,
   clampMaxOutputTokens,
-  cloudToolsEnabled,
   defaultAiSettings,
   maxOutputTokensOf,
   resolveAiSettings,
 } from '../src/providers'
-import type { AiProviderId } from '../src/types'
+import { OLLAMA_DEFAULT_HOST } from '../src/types'
 
-describe('defaultAiSettings', () => {
-  it('gives every provider its default model and an empty key by default', () => {
-    const settings = defaultAiSettings()
-    expect(settings.provider).toBe('genspark')
-    for (const meta of AI_PROVIDERS) {
-      expect(settings.providers[meta.id].apiKey).toBe('')
-      expect(settings.providers[meta.id].model).toBe(meta.defaultModel)
-    }
-    expect(settings.providers.custom.baseUrl).toBe('')
-    expect(settings.providers.codex.cliPath).toBe('')
-    expect(settings.providers.codex.model).toBe('')
-    expect(settings.providers.anthropic.baseUrl).toBeUndefined()
+describe('AI_PROVIDERS', () => {
+  it('is Ollama and nothing else', () => {
+    expect(AI_PROVIDERS.map((p) => p.id)).toEqual(['ollama'])
   })
 
-  it('applies caller-supplied default keys only to the listed providers', () => {
-    const settings = defaultAiSettings({ anthropic: 'sk-ant-preset' })
-    expect(settings.providers.anthropic.apiKey).toBe('sk-ant-preset')
-    expect(settings.providers.gemini.apiKey).toBe('')
+  it('ships no model list — the catalog is read from the daemon', () => {
+    expect(AI_PROVIDERS[0].models).toEqual([])
+    expect(AI_PROVIDERS[0].defaultModel).toBe('')
   })
 })
 
-describe('provider model catalog', () => {
-  it('offers DeepSeek V4.1 Flash directly and drops the retired Vision Exp id', () => {
-    const genspark = AI_PROVIDERS.find((provider) => provider.id === 'genspark')!
-    const deepseek = AI_PROVIDERS.find((provider) => provider.id === 'deepseek')!
+describe('defaultAiSettings', () => {
+  it('points at the local daemon with no model chosen yet', () => {
+    const s = defaultAiSettings()
+    expect(s.provider).toBe('ollama')
+    expect(s.providers.ollama).toEqual({
+      apiKey: '',
+      model: '',
+      baseUrl: OLLAMA_DEFAULT_HOST,
+    })
+  })
+})
 
-    expect(deepseek.models).toContain('deepseek-flash')
-    expect(deepseek.models).not.toContain('deepseek-v4-flash')
-    expect(deepseek.models).not.toContain('deepseek-v4-flash-vision-exp')
-    expect(genspark.models).not.toContain('deep-seek-v4-flash')
-    expect(genspark.models).not.toContain('deep-seek-v4-flash-vision-exp-openrouter')
+describe('aiConfigured', () => {
+  it('needs a non-blank model', () => {
+    const s = defaultAiSettings()
+    expect(aiConfigured(s)).toBe(false)
+    s.providers.ollama.model = '   '
+    expect(aiConfigured(s)).toBe(false)
+    s.providers.ollama.model = 'qwen3.5:latest'
+    expect(aiConfigured(s)).toBe(true)
   })
 
-  it('serves DeepSeek V4.1 Flash through the Genspark proxy under its hyphenated pool id', () => {
-    const genspark = AI_PROVIDERS.find((provider) => provider.id === 'genspark')!
-    expect(genspark.models).toContain('deep-seek-v4.1-flash')
-    expect(genspark.models).not.toContain('deep-seek-v4-pro')
-  })
-
-  it('keeps Responses-only models out of the OpenCode tiers (no such protocol yet)', () => {
-    for (const id of ['opencode-zen', 'opencode-go'] as const) {
-      const meta = AI_PROVIDERS.find((provider) => provider.id === id)!
-      expect(meta.models).toContain(meta.defaultModel)
-      expect(meta.needsBaseUrl).toBeUndefined()
-      for (const model of meta.models) {
-        expect(model).not.toMatch(/^(gpt-|grok-|muse-spark-)/)
-      }
-    }
-  })
-
-  it('seeds Requesty with managed policy ids (short names, no vendor prefix)', () => {
-    const requesty = AI_PROVIDERS.find((provider) => provider.id === 'requesty')!
-    expect(requesty.models).toContain(requesty.defaultModel)
-    expect(requesty.needsBaseUrl).toBeUndefined()
-    for (const model of requesty.models) {
-      expect(model).not.toContain('/')
-    }
-  })
-
-  it('seeds Opper with pool ids (bare names, no vendor prefix)', () => {
-    const opper = AI_PROVIDERS.find((provider) => provider.id === 'opper')!
-    expect(opper.models).toContain(opper.defaultModel)
-    expect(opper.needsBaseUrl).toBeUndefined()
-    for (const model of opper.models) {
-      expect(model).not.toContain('/')
-    }
+  it('does not change which provider is active — there is only one', () => {
+    expect(activeProvider(defaultAiSettings())).toBe('ollama')
   })
 })
 
 describe('resolveAiSettings', () => {
-  it('returns fresh defaults when nothing is stored', () => {
-    const defaults = defaultAiSettings({ anthropic: 'sk-ant-preset' })
-    expect(resolveAiSettings({}, defaults)).toEqual(defaults)
+  it('fills defaults for an empty file', () => {
+    expect(resolveAiSettings({})).toEqual(defaultAiSettings())
   })
 
-  it('migrates the pre-provider single-endpoint shape into the custom provider', () => {
-    const defaults = defaultAiSettings()
-    const resolved = resolveAiSettings(
-      { apiKey: 'legacy-key', model: 'legacy-model', baseUrl: 'https://legacy.example.com/v1' },
-      defaults,
-    )
-    expect(resolved.providers.custom).toEqual({
-      apiKey: 'legacy-key',
-      model: 'legacy-model',
-      baseUrl: 'https://legacy.example.com/v1',
+  it('trims the stored key, model and host', () => {
+    const s = resolveAiSettings({
+      providers: {
+        ollama: { apiKey: ' k ', model: ' llama3.2 ', baseUrl: ' http://box:11434/v1/ ' },
+      },
+    } as never)
+    expect(s.providers.ollama).toEqual({
+      apiKey: 'k',
+      model: 'llama3.2',
+      // the /v1 suffix and trailing slash are normalized off the daemon root
+      baseUrl: 'http://box:11434',
     })
-    // untouched providers keep their defaults
-    expect(resolved.providers.anthropic).toEqual(defaults.providers.anthropic)
   })
 
-  it('defaults the legacy base URL to the OpenAI endpoint when omitted', () => {
-    const resolved = resolveAiSettings({ apiKey: 'legacy-key' }, defaultAiSettings())
-    expect(resolved.providers.custom.baseUrl).toBe('https://api.openai.com/v1')
-  })
-
-  it('merges stored multi-provider settings over the defaults, provider by provider', () => {
-    const defaults = defaultAiSettings({ anthropic: 'preset-key' })
-    const resolved = resolveAiSettings(
-      {
-        provider: 'gemini',
-        providers: {
-          gemini: { apiKey: 'stored-gemini-key', model: 'gemini-2.5-pro' },
-        } as never,
+  it('adopts an upstream custom endpoint that pointed at a local Ollama', () => {
+    const s = resolveAiSettings({
+      provider: 'custom',
+      providers: {
+        anthropic: { apiKey: 'sk-ant-secret', model: 'claude-sonnet-5' },
+        custom: { apiKey: '', model: 'llama3.2', baseUrl: 'http://localhost:11434/v1' },
       },
-      defaults,
-    )
-    expect(resolved.provider).toBe('gemini')
-    expect(resolved.providers.gemini).toEqual({
-      apiKey: 'stored-gemini-key',
-      model: 'gemini-2.5-pro',
-    })
-    // provider not mentioned in stored.providers keeps the computed default
-    expect(resolved.providers.anthropic.apiKey).toBe('preset-key')
+    } as never)
+    expect(s.providers.ollama.model).toBe('llama3.2')
+    expect(s.providers.ollama.baseUrl).toBe('http://localhost:11434')
+    // cloud credentials are deliberately not carried into a local-only product
+    expect(JSON.stringify(s)).not.toContain('sk-ant-secret')
   })
 
-  it('rewrites a stored model id the vendor has retired', () => {
-    const resolved = resolveAiSettings(
-      {
-        providers: {
-          deepseek: { apiKey: 'sk-user', model: 'deepseek-reasoner' },
-        } as never,
+  it('ignores an upstream custom endpoint that pointed at a hosted vendor', () => {
+    const s = resolveAiSettings({
+      provider: 'custom',
+      providers: {
+        custom: { apiKey: 'sk-1', model: 'gpt-5.6-sol', baseUrl: 'https://api.openai.com/v1' },
       },
-      defaultAiSettings(),
-    )
-    expect(resolved.providers.deepseek).toEqual({ apiKey: 'sk-user', model: 'deepseek-flash' })
+    } as never)
+    expect(s.providers.ollama.model).toBe('')
+    expect(s.providers.ollama.baseUrl).toBe(OLLAMA_DEFAULT_HOST)
   })
 
-  it('rewrites the retired V4 Flash id and the Genspark pool spelling to deepseek-flash', () => {
-    for (const model of ['deepseek-v4-flash', 'deep-seek-v4.1-flash']) {
-      const resolved = resolveAiSettings(
-        { providers: { deepseek: { apiKey: 'sk-user', model } } as never },
-        defaultAiSettings(),
-      )
-      expect(resolved.providers.deepseek.model).toBe('deepseek-flash')
-    }
+  it('migrates the pre-provider single-endpoint shape', () => {
+    const s = resolveAiSettings({ baseUrl: 'http://127.0.0.1:11434', model: 'mistral' })
+    expect(s.providers.ollama.model).toBe('mistral')
+    expect(s.providers.ollama.baseUrl).toBe('http://127.0.0.1:11434')
   })
 
-  it('rewrites genspark model ids the proxy no longer serves', () => {
-    const resolved = resolveAiSettings(
-      {
-        providers: {
-          genspark: { apiKey: '', model: 'gemini-3.7-flash' },
-        } as never,
-      },
-      defaultAiSettings(),
-    )
-    expect(resolved.providers.genspark.model).toBe('claude-opus-4-7')
-
-    const gpt = resolveAiSettings(
-      {
-        providers: {
-          genspark: { apiKey: '', model: 'gpt-5.6' },
-        } as never,
-      },
-      defaultAiSettings(),
-    )
-    expect(gpt.providers.genspark.model).toBe('gpt-5.6-terra')
+  it('always reports ollama as the provider, whatever the file says', () => {
+    expect(resolveAiSettings({ provider: 'anthropic' } as never).provider).toBe('ollama')
   })
 
-  it('leaves a still-supported model id alone', () => {
-    const resolved = resolveAiSettings(
-      {
-        providers: {
-          deepseek: { apiKey: 'sk-user', model: 'deepseek-v4-pro' },
-        } as never,
-      },
-      defaultAiSettings(),
+  it('clamps a hand-edited output cap on read', () => {
+    expect(resolveAiSettings({ maxOutputTokens: 10 ** 9 }).maxOutputTokens).toBe(
+      MAX_MAX_OUTPUT_TOKENS,
     )
-    expect(resolved.providers.deepseek.model).toBe('deepseek-v4-pro')
-  })
-
-  it('trims whitespace pasted around stored keys and base URLs', () => {
-    const resolved = resolveAiSettings(
-      {
-        providers: {
-          deepseek: { apiKey: ' sk-user\n', model: ' deepseek-v4-pro ' },
-          custom: { apiKey: 'k', model: ' m ', baseUrl: ' http://localhost:1234/v1 ' },
-        } as never,
-      },
-      defaultAiSettings(),
-    )
-    expect(resolved.providers.deepseek.apiKey).toBe('sk-user')
-    expect(resolved.providers.deepseek.model).toBe('deepseek-v4-pro')
-    expect(resolved.providers.deepseek.baseUrl).toBeUndefined()
-    expect(resolved.providers.custom.model).toBe('m')
-    expect(resolved.providers.custom.baseUrl).toBe('http://localhost:1234/v1')
-  })
-
-  it('still remaps retired model ids padded with whitespace', () => {
-    const resolved = resolveAiSettings(
-      {
-        providers: {
-          deepseek: { apiKey: 'sk-user', model: ' deepseek-reasoner ' },
-        } as never,
-      },
-      defaultAiSettings(),
-    )
-    expect(resolved.providers.deepseek.model).toBe('deepseek-flash')
-  })
-
-  it('trims the legacy single-endpoint key and base URL too', () => {
-    const resolved = resolveAiSettings(
-      {
-        apiKey: ' legacy-key ',
-        model: ' legacy-model ',
-        baseUrl: ' https://legacy.example.com/v1 ',
-      },
-      defaultAiSettings(),
-    )
-    expect(resolved.providers.custom.apiKey).toBe('legacy-key')
-    expect(resolved.providers.custom.model).toBe('legacy-model')
-    expect(resolved.providers.custom.baseUrl).toBe('https://legacy.example.com/v1')
-  })
-
-  it('carries a stored output cap and clamps a hand-edited one', () => {
-    // a multi-provider file (the legacy single-endpoint shape returns defaults wholesale)
-    const stored = { providers: {} as never }
-    expect(
-      resolveAiSettings({ ...stored, maxOutputTokens: 32768 }, defaultAiSettings()).maxOutputTokens,
-    ).toBe(32768)
-    // a settings file edited by hand must not forward an absurd budget to the endpoint
-    expect(
-      resolveAiSettings({ ...stored, maxOutputTokens: 1 }, defaultAiSettings()).maxOutputTokens,
-    ).toBe(MIN_MAX_OUTPUT_TOKENS)
-    expect(
-      resolveAiSettings({ ...stored, maxOutputTokens: 1e9 }, defaultAiSettings()).maxOutputTokens,
-    ).toBe(MAX_MAX_OUTPUT_TOKENS)
-    // absent stays absent: pre-existing settings files keep the default behaviour
-    expect('maxOutputTokens' in resolveAiSettings(stored, defaultAiSettings())).toBe(false)
+    expect(resolveAiSettings({ maxOutputTokens: 1 }).maxOutputTokens).toBe(MIN_MAX_OUTPUT_TOKENS)
   })
 })
 
-describe('maxOutputTokensOf', () => {
-  it('falls back to the default when the setting is absent or unusable', () => {
-    expect(maxOutputTokensOf({})).toBe(DEFAULT_MAX_OUTPUT_TOKENS)
-    expect(maxOutputTokensOf(undefined)).toBe(DEFAULT_MAX_OUTPUT_TOKENS)
-    expect(maxOutputTokensOf({ maxOutputTokens: Number.NaN })).toBe(DEFAULT_MAX_OUTPUT_TOKENS)
-    expect(maxOutputTokensOf({ maxOutputTokens: '8192' as unknown as number })).toBe(
-      DEFAULT_MAX_OUTPUT_TOKENS,
-    )
-  })
-
-  it('honors a stored cap inside the bounds', () => {
-    expect(maxOutputTokensOf({ maxOutputTokens: 16384 })).toBe(16384)
-    expect(maxOutputTokensOf({ maxOutputTokens: 3.7 })).toBe(MIN_MAX_OUTPUT_TOKENS)
-    expect(maxOutputTokensOf({ maxOutputTokens: 20000 })).toBe(20000)
-  })
-})
-
-describe('clampMaxOutputTokens', () => {
-  it('floors, bounds and defaults whatever the settings field or the input box held', () => {
-    expect(clampMaxOutputTokens(16384.9)).toBe(16384)
+describe('output cap helpers', () => {
+  it('clamps into range and falls back on garbage', () => {
+    expect(clampMaxOutputTokens(4096)).toBe(4096)
     expect(clampMaxOutputTokens(0)).toBe(MIN_MAX_OUTPUT_TOKENS)
-    expect(clampMaxOutputTokens(5e6)).toBe(MAX_MAX_OUTPUT_TOKENS)
-    expect(clampMaxOutputTokens(Number.POSITIVE_INFINITY)).toBe(DEFAULT_MAX_OUTPUT_TOKENS)
-    expect(clampMaxOutputTokens(undefined)).toBe(DEFAULT_MAX_OUTPUT_TOKENS)
-  })
-})
-
-describe('activeProvider', () => {
-  it('honors a configured BYOK provider and falls back to genspark otherwise', () => {
-    const settings = defaultAiSettings()
-    expect(activeProvider(settings)).toBe('genspark')
-
-    settings.provider = 'kimi'
-    expect(activeProvider(settings)).toBe('genspark') // no key yet
-    settings.providers.kimi.apiKey = 'sk-user'
-    expect(activeProvider(settings)).toBe('kimi')
+    expect(clampMaxOutputTokens(10 ** 9)).toBe(MAX_MAX_OUTPUT_TOKENS)
+    expect(clampMaxOutputTokens('nope')).toBe(DEFAULT_MAX_OUTPUT_TOKENS)
+    expect(clampMaxOutputTokens(Number.NaN)).toBe(DEFAULT_MAX_OUTPUT_TOKENS)
   })
 
-  it('requires a base URL for providers that declare needsBaseUrl', () => {
-    const settings = defaultAiSettings()
-    settings.provider = 'custom'
-    settings.providers.custom.apiKey = 'k'
-    expect(activeProvider(settings)).toBe('genspark')
-    settings.providers.custom.baseUrl = 'http://localhost:1234/v1'
-    expect(activeProvider(settings)).toBe('genspark') // custom's default model is empty
-    settings.providers.custom.model = 'my-model'
-    expect(activeProvider(settings)).toBe('custom')
-  })
-
-  it('allows keyless custom endpoints for local servers', () => {
-    const settings = defaultAiSettings()
-    settings.provider = 'custom'
-    settings.providers.custom.apiKey = ''
-    settings.providers.custom.baseUrl = 'http://localhost:11434/v1'
-    settings.providers.custom.model = 'llama3'
-    expect(activeProvider(settings)).toBe('custom')
-  })
-
-  it('auto-discovers Codex without an API key and preserves an optional override', () => {
-    const settings = defaultAiSettings()
-    settings.provider = 'codex'
-    expect(activeProvider(settings)).toBe('codex')
-    settings.providers.codex.cliPath = ' C:\\Tools\\codex.exe '
-    expect(activeProvider(settings)).toBe('codex')
-
-    const resolved = resolveAiSettings(
-      { providers: { codex: settings.providers.codex } as never },
-      defaultAiSettings(),
-    )
-    expect(resolved.providers.codex.cliPath).toBe('C:\\Tools\\codex.exe')
-    expect(resolved.providers.codex.apiKey).toBe('')
-  })
-
-  it('treats whitespace-only keys, URLs, and models as unconfigured', () => {
-    const settings = defaultAiSettings()
-    settings.provider = 'kimi'
-    settings.providers.kimi.apiKey = '   '
-    expect(activeProvider(settings)).toBe('genspark')
-    settings.providers.kimi.apiKey = 'sk-user'
-    settings.providers.kimi.model = '  '
-    expect(activeProvider(settings)).toBe('genspark')
-    settings.providers.kimi.model = 'kimi-k2'
-    expect(activeProvider(settings)).toBe('kimi')
-
-    const custom = defaultAiSettings()
-    custom.provider = 'custom'
-    custom.providers.custom.baseUrl = '   '
-    custom.providers.custom.model = 'my-model'
-    expect(activeProvider(custom)).toBe('genspark')
-  })
-
-  it('falls back to genspark for unknown ids from a hand-edited settings file', () => {
-    const settings = defaultAiSettings()
-    settings.provider = 'nonsense' as AiProviderId
-    expect(activeProvider(settings)).toBe('genspark')
-  })
-
-  it('genspark never requires a key (injected from the gsk login at request time)', () => {
-    const settings = defaultAiSettings()
-    settings.provider = 'genspark'
-    expect(activeProvider(settings)).toBe('genspark')
-  })
-})
-
-describe('gskToolsEnabled', () => {
-  it('defaults on, survives resolveAiSettings, and only an explicit false turns it off', () => {
-    expect(cloudToolsEnabled(defaultAiSettings())).toBe(true)
-    // pre-toggle settings file (field absent) stays on
-    const legacy = resolveAiSettings({ providers: {} as never }, defaultAiSettings())
-    expect(cloudToolsEnabled(legacy)).toBe(true)
-    const off = resolveAiSettings(
-      { providers: {} as never, gskToolsEnabled: false },
-      defaultAiSettings(),
-    )
-    expect(off.gskToolsEnabled).toBe(false)
-    expect(cloudToolsEnabled(off)).toBe(false)
+  it('reads the effective cap off a settings object', () => {
+    expect(maxOutputTokensOf(null)).toBe(DEFAULT_MAX_OUTPUT_TOKENS)
+    expect(maxOutputTokensOf({ maxOutputTokens: undefined })).toBe(DEFAULT_MAX_OUTPUT_TOKENS)
+    expect(maxOutputTokensOf({ maxOutputTokens: 2048 })).toBe(2048)
   })
 })

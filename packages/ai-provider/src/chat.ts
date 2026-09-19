@@ -1,12 +1,9 @@
-import { chatAnthropic } from './protocols/anthropic'
-import { chatGemini } from './protocols/gemini'
 import { chatOpenAiCompatible } from './protocols/openai-compatible'
-import { chatCodexAppServer } from './codex-app-server'
-import { getProviderAdapter, type ResolvedEndpoint } from './registry'
+import { getProviderAdapter } from './registry'
 import type { AiChatResponse, AiProviderConfig, AiProviderId } from './types'
 import { AI_CHAT_RESPONSE_TIMEOUT_MS, createStreamWatchdog } from './watchdog'
 
-/** route a one-shot (non-streaming, non-tool-calling) chat call by provider id */
+/** route a one-shot (non-streaming, non-tool-calling) chat call */
 export async function chatForProvider(
   provider: AiProviderId,
   config: AiProviderConfig,
@@ -14,34 +11,20 @@ export async function chatForProvider(
   user: string,
   signal?: AbortSignal,
 ): Promise<AiChatResponse> {
-  // non-streaming: the server generates the full answer before the headers arrive,
+  // non-streaming: the daemon generates the full answer before the headers arrive,
   // so the connect phase gets the long budget; the body read then gets the idle budget
   const wd = createStreamWatchdog(signal, AI_CHAT_RESPONSE_TIMEOUT_MS)
   return wd.guard(() => {
-    let endpoint: ResolvedEndpoint
-    try {
-      endpoint = getProviderAdapter(provider).resolveEndpoint(config)
-    } catch (e) {
-      // config errors (unknown provider, missing base URL) report as a failed reply, not a rejection
+    if (!config.model?.trim()) {
       return Promise.resolve({
         ok: false as const,
-        error: e instanceof Error ? e.message : String(e),
+        error: 'No Ollama model selected. Pick one in Settings › AI.',
       })
     }
-    switch (endpoint.protocol) {
-      case 'codex-app-server':
-        return chatCodexAppServer(config, system, user, wd.signal)
-      case 'anthropic':
-        return chatAnthropic(wd, config, system, user, endpoint.baseUrl)
-      case 'gemini':
-        return chatGemini(wd, config, system, user, endpoint.baseUrl, {
-          omitTemperature: endpoint.omitTemperature,
-        })
-      case 'openai-compatible':
-        return chatOpenAiCompatible(wd, endpoint.baseUrl, config, system, user, {
-          omitTemperature: endpoint.omitTemperature,
-          bodyExtras: endpoint.bodyExtras,
-        })
-    }
+    const endpoint = getProviderAdapter(provider).resolveEndpoint(config)
+    return chatOpenAiCompatible(wd, endpoint.baseUrl, config, system, user, {
+      omitTemperature: endpoint.omitTemperature,
+      bodyExtras: endpoint.bodyExtras,
+    })
   })
 }

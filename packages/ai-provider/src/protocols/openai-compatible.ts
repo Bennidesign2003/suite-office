@@ -1,7 +1,6 @@
 import type { AgentMessage, AgentToolCall, AgentToolDef } from '@genoffice/agent-core'
 import { aiFetch } from '../fetch'
 import { httpBodyDetail } from '../http-error'
-import { gensparkAttributionHeaders, opencodeSessionHeaders } from '../providers'
 import { modelEchoesReasoning } from '../registry'
 import type { AiChatResponse, AiProviderConfig } from '../types'
 import { createStreamWatchdog, type StreamWatchdog } from '../watchdog'
@@ -10,7 +9,6 @@ import {
   parseToolInput,
   sseErrorText,
   sseLines,
-  throwIfCreditsNotice,
   type StreamCallbacks,
 } from './shared'
 
@@ -155,8 +153,6 @@ async function openAiCompatibleTurn(
     headers: {
       'Content-Type': 'application/json',
       ...(config.apiKey ? { Authorization: `Bearer ${config.apiKey}` } : {}),
-      ...gensparkAttributionHeaders(baseUrl),
-      ...opencodeSessionHeaders(baseUrl, cb.sessionId),
     },
     body: JSON.stringify({
       model: config.model,
@@ -183,10 +179,7 @@ async function openAiCompatibleTurn(
     throw new Error(`HTTP ${response.status}: ${httpBodyDetail(await response.text())}`)
   }
   const jsonBody = await jsonBodyInsteadOfSse(response)
-  if (jsonBody !== null) {
-    throwIfCreditsNotice(jsonBody)
-    return emitOpenAiJsonMessage(jsonBody, cb)
-  }
+  if (jsonBody !== null) return emitOpenAiJsonMessage(jsonBody, cb)
   // tool call arguments stream in fragments keyed by index
   const pendingTools = new Map<number, { id: string; name: string; json: string }>()
   let stopReason: string | undefined
@@ -321,8 +314,6 @@ export async function chatOpenAiCompatible(
     headers: {
       'Content-Type': 'application/json',
       ...(config.apiKey ? { Authorization: `Bearer ${config.apiKey}` } : {}),
-      ...gensparkAttributionHeaders(baseUrl),
-      ...opencodeSessionHeaders(baseUrl),
     },
     body: JSON.stringify({
       model: config.model,

@@ -5,19 +5,20 @@ import type {
   AiSettings,
 } from './types'
 
+/**
+ * 'free' is the keyless chain and the default, so web search works out of the
+ * box on a machine with no accounts on it at all. Serper and Tavily stay for
+ * users who have a key and want better results — they are the only remaining
+ * places in Suite where a request leaves the machine, and both are opt-in.
+ */
 export const AI_SEARCH_PROVIDERS: AiSearchProviderMeta[] = [
-  {
-    id: 'genspark',
-    label: 'Genspark',
-    keyPlaceholder: 'Not required - sign in to Genspark',
-    imageSearch: true,
-  },
+  { id: 'free', label: 'Free sources (no key)', keyPlaceholder: '', imageSearch: true },
   { id: 'serper', label: 'Serper', keyPlaceholder: 'Serper API key', imageSearch: true },
   { id: 'tavily', label: 'Tavily', keyPlaceholder: 'tvly-...', imageSearch: false },
 ]
 
 export function defaultAiSearchSettings(): AiSearchSettings {
-  return { provider: 'genspark', providers: { serper: { apiKey: '' }, tavily: { apiKey: '' } } }
+  return { provider: 'free', providers: { serper: { apiKey: '' }, tavily: { apiKey: '' } } }
 }
 
 export function resolveAiSearchSettings(
@@ -30,15 +31,18 @@ export function resolveAiSearchSettings(
     const key = stored.providers?.[id]?.apiKey
     if (typeof key === 'string') providers[id] = { apiKey: key.trim() }
   }
-  return { provider: stored.provider ?? defaults.provider, providers }
+  const provider = AI_SEARCH_PROVIDERS.some((m) => m.id === stored.provider)
+    ? stored.provider!
+    : defaults.provider
+  return { provider, providers }
 }
 
-/** the stored search provider, honored only with a key; otherwise genspark (gsk + free chain) */
+/** The stored search backend, honored only with a key; otherwise the keyless chain. */
 export function activeSearchProvider(settings: Pick<AiSettings, 'search'>): AiSearchProviderId {
   const search = settings.search
-  if (!search || search.provider === 'genspark') return 'genspark'
-  if (!AI_SEARCH_PROVIDERS.some((m) => m.id === search.provider)) return 'genspark'
+  if (!search || search.provider === 'free') return 'free'
+  if (!AI_SEARCH_PROVIDERS.some((m) => m.id === search.provider)) return 'free'
   // Trim-aware: a whitespace-only key from in-memory settings falls back
   // instead of sending `Bearer    ` to the search backend.
-  return search.providers?.[search.provider]?.apiKey?.trim() ? search.provider : 'genspark'
+  return search.providers?.[search.provider]?.apiKey?.trim() ? search.provider : 'free'
 }
