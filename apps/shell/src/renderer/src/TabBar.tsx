@@ -45,7 +45,10 @@ function PdfIcon() {
   )
 }
 
-const IS_MAC = navigator.platform.toLowerCase().includes('mac')
+// the browser build (`npm run web`) has no macOS menu bar or traffic lights
+const IS_MAC =
+  document.documentElement.dataset.suiteWeb !== '1' &&
+  navigator.platform.toLowerCase().includes('mac')
 
 function HomeIcon() {
   return (

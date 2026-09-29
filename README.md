@@ -32,15 +32,15 @@ echte `.docx`, `.xlsx` und `.pptx` schreibt und bearbeitet.
 
 ## Was anders ist als bei GenOffice
 
-| | GenOffice | Suite |
-|---|---|---|
-| KI-Anbieter | 18 gehostete + Codex CLI | nur lokales Ollama |
-| Konto | Genspark-Login nötig | keins |
-| Modellliste | fest einkompiliert | live vom Daemon (`/api/tags`) |
-| Bildgenerierung | über Cloud-Anbieter | **entfernt** – Ollama hat keinen Endpunkt dafür |
-| Bildanalyse | Cloud-Vision-Modelle | lokales Vision-Modell |
-| Websuche | Genspark-Konto | schlüsselfrei (DuckDuckGo), Serper/Tavily optional |
-| Cloud-Projekte, Credits | vorhanden | entfernt |
+|                         | GenOffice                | Suite                                              |
+| ----------------------- | ------------------------ | -------------------------------------------------- |
+| KI-Anbieter             | 18 gehostete + Codex CLI | nur lokales Ollama                                 |
+| Konto                   | Genspark-Login nötig     | keins                                              |
+| Modellliste             | fest einkompiliert       | live vom Daemon (`/api/tags`)                      |
+| Bildgenerierung         | über Cloud-Anbieter      | **entfernt** – Ollama hat keinen Endpunkt dafür    |
+| Bildanalyse             | Cloud-Vision-Modelle     | lokales Vision-Modell                              |
+| Websuche                | Genspark-Konto           | schlüsselfrei (DuckDuckGo), Serper/Tavily optional |
+| Cloud-Projekte, Credits | vorhanden                | entfernt                                           |
 
 Die Modellliste ist bewusst nicht mehr einkompiliert: welche Modelle es gibt, ist eine
 Eigenschaft deines Rechners und ändert sich bei jedem `ollama pull`. Die Einstellungen
@@ -68,8 +68,11 @@ anzubieten, das nicht funktionieren kann.
 git clone https://github.com/Bennidesign2003/suite-office.git
 cd suite-office
 npm install
-npm run shell            # baut alles und startet die App
+npm run web              # baut bei Bedarf alles und öffnet Suite im Browser
 ```
+
+Suite läuft dann unter **http://localhost:4317/**. Wer lieber die Desktop-App
+(Electron) will: `npm run shell`.
 
 Beim ersten Start unter **Einstellungen → KI-Modell** ein Modell auswählen. Läuft der
 Daemon nicht auf `http://127.0.0.1:11434`, lässt sich der Host dort ändern — auch ein
@@ -78,28 +81,64 @@ Ollama auf einem anderen Rechner im Netz funktioniert.
 Weitere Skripte:
 
 ```bash
-npm run dev              # Entwicklungsmodus mit Hot Reload
+npm run web:rebuild      # alles neu bauen und im Browser starten
+npm run shell            # Desktop-App (Electron) statt Browser
+npm run dev              # Entwicklungsmodus mit Hot Reload (Electron)
 npm test                 # Unit-Tests aller Pakete
 npm run typecheck        # TypeScript über das ganze Monorepo
 npm run dist:mac         # Paket bauen (dist:win / dist:linux analog)
 ```
 
+## Im Browser (`npm run web`)
+
+Der Web-Modus braucht keinen eigenen Code-Zweig der Editoren: ein Node-Server
+(`apps/web`) führt den gebauten Hauptprozess der Shell aus und beantwortet
+`require('electron')` mit einer Web-Umsetzung. Jede Editor-Seite läuft im Browser,
+ihre IPC-Aufrufe gehen über einen WebSocket an den Server.
+
+- **Tabs** sind iframes, die der Server so anordnet wie früher die `WebContentsView`s.
+- **Dialoge** (Meldungen, Öffnen/Speichern) und **Menüs** zeichnet die Seite selbst.
+  Der Dateidialog zeigt das Dateisystem des Rechners, auf dem der Server läuft,
+  und kann zusätzlich Dateien vom eigenen Computer hochladen.
+- **Tastenkürzel** des Anwendungsmenüs (Strg/⌘+S, +O, …) funktionieren wie in der App.
+- **PDF-Export und Druck** rendern in einem unsichtbaren Chromium auf dem Server.
+  Gesucht werden Chrome, Chromium, Edge oder Brave; ein anderer Pfad lässt sich mit
+  `SUITE_CHROMIUM=/pfad/zum/browser` angeben.
+- Per Drag & Drop in den Browser gezogene Dateien landen in `Dokumente/Suite Uploads`.
+
+Einstellungen über Umgebungsvariablen:
+
+| Variable            | Standard    | Bedeutung                                                         |
+| ------------------- | ----------- | ----------------------------------------------------------------- |
+| `SUITE_PORT`        | `4317`      | Port der App (Dokumentinhalte laufen auf `SUITE_PORT + 1`)        |
+| `SUITE_HOST`        | `127.0.0.1` | Adresse; `0.0.0.0` macht Suite im Netzwerk erreichbar             |
+| `SUITE_PUBLIC_HOST` | –           | zusätzlicher Hostname, unter dem der Browser den Server anspricht |
+| `SUITE_NO_OPEN`     | –           | beim Start keinen Browser-Tab öffnen                              |
+| `SUITE_CHROMIUM`    | automatisch | Chromium für PDF-Export und Druck                                 |
+
+> ⚠️ Der Server hat vollen Zugriff auf deine Dateien. Standardmäßig lauscht er nur
+> auf diesem Rechner; mit `SUITE_HOST=0.0.0.0` bitte nur in vertrauenswürdigen Netzen.
+
+Bekannte Grenzen im Browser: Bildschirmaufnahme (Screenshot einfügen) gibt es nicht;
+die Zwischenablage des Systems ist nur so weit erreichbar, wie der Browser es erlaubt;
+ein Neuladen der Seite lädt offene Editor-Tabs neu (vorher speichern).
+
 ## Stand
 
 Suite ist in Arbeit. Ehrlich aufgeschlüsselt:
 
-| | |
-|---|---|
-| KI-Layer vollständig auf Ollama | ✅ fertig |
-| Alle sechs Editoren + CLI umgestellt | ✅ fertig |
-| Genspark-Konto, Cloud-Projekte, Credits entfernt | ✅ fertig |
-| Einstellungen mit Live-Modellauswahl | ✅ fertig |
-| Branding (Name, Icons, Oberflächentexte) | 🚧 in Arbeit |
-| Webapp statt Electron | 📋 geplant |
-| Mail und Kalender | 📋 geplant |
+|                                                  |              |
+| ------------------------------------------------ | ------------ |
+| KI-Layer vollständig auf Ollama                  | ✅ fertig    |
+| Alle sechs Editoren + CLI umgestellt             | ✅ fertig    |
+| Genspark-Konto, Cloud-Projekte, Credits entfernt | ✅ fertig    |
+| Einstellungen mit Live-Modellauswahl             | ✅ fertig    |
+| Branding (Name, Icons, Oberflächentexte)         | 🚧 in Arbeit |
+| Webapp: läuft im Browser (`npm run web`)         | ✅ fertig    |
+| Mail und Kalender                                | 📋 geplant   |
 
-Bekannt: `packages/html2docx/src/convert.ts` hat einen Typfehler, der aus dem
-Ursprungsprojekt stammt (nachgeprüft gegen `genspark-ai/genoffice@316ded6`).
+Der aus dem Ursprungsprojekt stammende Typfehler in
+`packages/html2docx/src/convert.ts` ist behoben; `npm run typecheck` läuft sauber durch.
 
 ## Datenschutz
 

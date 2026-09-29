@@ -392,7 +392,7 @@ export const TOOLS: ToolSpec[] = [
     command: 'capabilities',
     readOnly: true,
     description:
-      'Which cloud features are configured in GenOffice: web search, image search, image generation, media understanding. Check once before planning photos or live facts; everything else runs locally.',
+      'Which online and model features are configured in GenOffice: web search, image search, media understanding (a local vision model). Check once before planning photos or live facts; everything else runs locally.',
   },
   {
     name: 'search',
@@ -403,15 +403,6 @@ export const TOOLS: ToolSpec[] = [
       'Web search, or image search with images=true, through the provider configured in GenOffice (the query leaves the machine). Image results carry imageUrl, width and height for addPicture / insert_image.',
     positionals: [{ key: 'query', description: 'the search query' }],
     options: ['images', 'max'],
-  },
-  {
-    name: 'image',
-    command: 'image',
-    openWorld: true,
-    description:
-      'Generate an image from a prompt with the provider configured in GenOffice and save it; the result names the real format. ref images steer edits (background removal, upscale).',
-    positionals: [{ key: 'prompt', description: 'what to draw' }],
-    options: ['out', 'aspect', 'size', 'ref', 'model', 'force'],
   },
   {
     name: 'media',

@@ -32,50 +32,6 @@ describe('cloud command plumbing', () => {
     expect((await run(['search', 'x', '--max', 'lots', '--json'])).code).toBe(1)
   })
 
-  it('applies GENOFFICE_ALLOWED_ROOTS to --out and local --ref before any network call', async () => {
-    const { writeFileSync } = await import('node:fs')
-    const { tempDir } = await import('./helpers')
-    const inside = tempDir()
-    const outside = tempDir()
-    const env = { ...process.env, GENOFFICE_AUDIT_LOG: 'off', GENOFFICE_ALLOWED_ROOTS: inside }
-    const out = await run(['image', 'a cat', '--out', join(outside, 'x.png'), '--json'], { env })
-    expect(out.code).toBe(2)
-    expect(out.json().message).toContain('refusing to write')
-    writeFileSync(join(outside, 'ref.png'), 'x')
-    const ref = await run(
-      [
-        'image',
-        'a cat',
-        '--ref',
-        join(outside, 'ref.png'),
-        '--out',
-        join(inside, 'x.png'),
-        '--json',
-      ],
-      { env },
-    )
-    expect(ref.code).toBe(2)
-    expect(ref.json().message).toContain('refusing to read')
-    const fileRef = await run(
-      [
-        'image',
-        'a cat',
-        '--ref',
-        'file://' + join(outside, 'ref.png'),
-        '--out',
-        join(inside, 'x.png'),
-        '--json',
-      ],
-      { env },
-    )
-    expect(fileRef.code).toBe(2)
-    expect(fileRef.json().message).toContain('refusing to read')
-    // the default output name is policy-checked before generation too
-    const noOut = await run(['image', 'a cat', '--json'], { env, cwd: outside })
-    expect(noOut.code).toBe(2)
-    expect(noOut.json().message).toContain('refusing to write')
-  })
-
   it('rejects missing arguments before touching the network', async () => {
     expect((await run(['search', '--json'])).code).toBe(1)
     expect((await run(['media', '--json'])).code).toBe(1)
