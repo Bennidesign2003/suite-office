@@ -12,7 +12,7 @@ const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm'
 
 const required = [
   'apps/shell/out/main/index.js',
-  ...['docs', 'sheets', 'slides', 'pdf', 'markdown', 'html'].flatMap((m) => [
+  ...['docs', 'sheets', 'slides', 'pdf', 'markdown', 'html', 'mail'].flatMap((m) => [
     `apps/${m}/out/renderer/index.html`,
     `apps/${m}/out/preload/index.js`,
   ]),

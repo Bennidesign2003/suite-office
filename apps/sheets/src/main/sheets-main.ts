@@ -64,6 +64,7 @@ import {
   chatForProvider,
   defaultAiSettings,
   fetchOllamaCatalog,
+  installProxyDispatcher,
   maxOutputTokensOf,
   resolveAiSettings,
   setAiUserAgent,
@@ -4014,8 +4015,7 @@ async function applyMainProcessProxy(): Promise<void> {
     // corporate proxy would both fail to reach and get to read the prompt.
     setSearchProxyUrl(proxyUrl)
     try {
-      const { ProxyAgent, setGlobalDispatcher } = await import('undici')
-      setGlobalDispatcher(new ProxyAgent(proxyUrl))
+      await installProxyDispatcher(proxyUrl)
       // strip user:pass credentials before logging
       console.log('[proxy] main-process fetch via', proxyUrl.replace(/\/\/[^@/]*@/, '//***@'))
     } catch (e) {

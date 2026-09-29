@@ -27,7 +27,7 @@ voraus. Suite spricht mit genau einem Backend — einem Ollama-Daemon auf dem ei
 Rechner. Kein Konto, kein API-Key, keine Credits. Dokumente und Prompts verlassen das
 Gerät nicht.
 
-Dokumente, Tabellen, Präsentationen, PDF, Markdown und HTML — mit einem KI-Agenten, der
+Dokumente, Tabellen, Präsentationen, PDF, Markdown, HTML und **E-Mail** — mit einem KI-Agenten, der
 echte `.docx`, `.xlsx` und `.pptx` schreibt und bearbeitet.
 
 ## Was anders ist als bei GenOffice
@@ -135,16 +135,36 @@ Suite ist in Arbeit. Ehrlich aufgeschlüsselt:
 | Einstellungen mit Live-Modellauswahl             | ✅ fertig    |
 | Branding (Name, Icons, Oberflächentexte)         | 🚧 in Arbeit |
 | Webapp: läuft im Browser (`npm run web`)         | ✅ fertig    |
-| Mail und Kalender                                | 📋 geplant   |
+| Mail (IMAP/SMTP) mit Suite AI                    | ✅ fertig    |
+| Kalender                                         | 📋 geplant   |
 
 Der aus dem Ursprungsprojekt stammende Typfehler in
 `packages/html2docx/src/convert.ts` ist behoben; `npm run typecheck` läuft sauber durch.
 
+## Mail
+
+Die Karte **E-Mail** auf der Startseite öffnet das Postfach (ein Tab, wie Outlook):
+Ordner, Lesen, Antworten, Allen antworten, Weiterleiten, Anhänge, Verschieben,
+Löschen, Suche. Konten werden per IMAP/SMTP verbunden; für Gmail, Outlook.com, iCloud,
+GMX, WEB.DE, T-Online, Yahoo, Posteo und mailbox.org sind die Server hinterlegt — dort
+genügen Adresse und (App-)Passwort.
+
+**Suite AI** im Mail-Tab arbeitet wie in Docs mit deinem lokalen Ollama-Modell:
+E-Mails zusammenfassen, Aufgaben und Termine herausziehen, übersetzen, Fragen zur Mail
+beantworten, Antworten entwerfen und eigene Entwürfe umformulieren (professioneller,
+kürzer, freundlicher, Rechtschreibung, Übersetzung, aus Stichpunkten).
+
+Externe Bilder in HTML-Mails sind blockiert, bis du sie freigibst; Mails werden in einem
+Rahmen ohne Skripte angezeigt. Zugangsdaten liegen nur auf deinem Rechner
+(`mail-accounts.json` im Benutzerordner, verschlüsselt über den Schlüsselbund des
+Betriebssystems, wo verfügbar).
+
 ## Datenschutz
 
-Standardmäßig verlässt nichts den Rechner. Die einzige Ausnahme ist die **Websuche**,
-wenn der Agent sie benutzt — voreingestellt über schlüsselfreie Quellen, optional über
-Serper oder Tavily mit eigenem Key. Die Telemetrie des Ursprungsprojekts ist in
+Standardmäßig verlässt nichts den Rechner. Ausnahmen sind die **Websuche**, wenn der
+Agent sie benutzt — voreingestellt über schlüsselfreie Quellen, optional über Serper oder
+Tavily mit eigenem Key —, und natürlich **E-Mail**: Mails gehen direkt zwischen deinem
+Rechner und deinem Mail-Anbieter hin und her. Die KI liest sie nur lokal über Ollama. Die Telemetrie des Ursprungsprojekts ist in
 Quellbauten ohnehin inaktiv (sie braucht Build-Secrets, die es hier nicht gibt).
 
 ## Lizenz und Herkunft
@@ -164,3 +184,8 @@ Wesentliche Änderungen gegenüber dem Original:
 - `packages/ai-search`: Genspark-CLI-Backend und Login-Flow entfernt
 - Bildgenerierung, Cloud-Projekte, Kontoverwaltung und Credits aus allen Apps entfernt
 - Einstellungsoberfläche und Übersetzungen entsprechend überarbeitet
+- Oberfläche in „Suite Office“ umbenannt, eigenes Logo; Verweise auf das
+  Ursprungs-Repository durch dieses ersetzt
+- Neuer Web-Modus (`apps/web`): Suite läuft im Browser
+- Neues Mail-Modul (`apps/mail`) mit IMAP/SMTP und lokaler KI
+- Proxy-Einstellungen leiten Anfragen an das lokale Ollama nicht mehr über den Proxy

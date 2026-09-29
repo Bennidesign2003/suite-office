@@ -27,6 +27,7 @@
     "@genoffice/electron-utils": "*",
     "@genoffice/cli": "*",
     "@genoffice/i18n": "*",
+    "@genoffice/mail": "*",
     "@genoffice/pipelines": "*",
     "@genoffice/pptx-engine": "*",
     "@genoffice/pptx-render": "*",

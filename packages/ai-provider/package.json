@@ -16,7 +16,8 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@genoffice/agent-core": "*"
+    "@genoffice/agent-core": "*",
+    "undici": "^6.28.0"
   },
   "devDependencies": {
     "typescript": "^5.9.3",

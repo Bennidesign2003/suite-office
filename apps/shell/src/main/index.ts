@@ -11,7 +11,11 @@ import {
   writeFileSync,
 } from 'node:fs'
 import { basename, dirname, extname, join, resolve } from 'node:path'
-import { fetchOllamaCatalog, type OllamaCatalog } from '@genoffice/ai-provider'
+import {
+  fetchOllamaCatalog,
+  installProxyDispatcher,
+  type OllamaCatalog,
+} from '@genoffice/ai-provider'
 import {
   BrowserWindow,
   Menu,
@@ -270,6 +274,7 @@ import {
   type FolderErrors,
 } from './folder-tree'
 import { runHeadlessExport, type HeadlessExporters } from './headless-export'
+import { configureMailRuntime } from '../../../mail/src/main/mail-main'
 import { TabManager } from './tab-manager'
 import { applyUpdateChannel, checkForUpdatesNow, initAutoUpdater } from './updater'
 import { isUpdateChannel, type UpdateChannel } from '../shared/update-api'
@@ -337,6 +342,9 @@ const MARKDOWN_OUT = app.isPackaged
 const HTML_OUT = app.isPackaged
   ? join(process.resourcesPath, 'modules', 'html')
   : join(APPS_ROOT, 'html', 'out')
+const MAIL_OUT = app.isPackaged
+  ? join(process.resourcesPath, 'modules', 'mail')
+  : join(APPS_ROOT, 'mail', 'out')
 const SIDECAR_BIN = app.isPackaged
   ? join(process.resourcesPath, 'native', SIDECAR_EXE)
   : join(APPS_ROOT, 'sheets', 'native', 'xlsx-engine', 'target', 'release', SIDECAR_EXE)
@@ -380,6 +388,11 @@ configureHtmlRuntime({
   rendererUrl: process.env.HTML_RENDERER_URL,
   rendererFile: join(HTML_OUT, 'renderer', 'index.html'),
   openGeneratedPath: (path) => openGeneratedDocument(path),
+})
+configureMailRuntime({
+  preloadPath: join(MAIL_OUT, 'preload', 'index.js'),
+  rendererUrl: process.env.MAIL_RENDERER_URL,
+  rendererFile: join(MAIL_OUT, 'renderer', 'index.html'),
 })
 // privileged-scheme registration is only legal before app ready
 registerPrivilegedSchemes()
@@ -612,6 +625,7 @@ const tMain = createI18n({
     menuNewMarkdown: 'AI Markdown',
     menuNewHtml: 'AI HTML',
     menuNewPdf: 'AI PDF',
+    menuMail: '邮件',
     menuExportPdf: '导出为 PDF…',
     menuExportHtml: '导出为单文件 HTML…',
     menuOpenInDocs: '转换为 Docs 文档并打开',
@@ -693,6 +707,7 @@ const tMain = createI18n({
     menuNewMarkdown: 'AI Markdown',
     menuNewHtml: 'AI HTML',
     menuNewPdf: 'AI PDF',
+    menuMail: 'Mail',
     menuExportPdf: 'Export as PDF…',
     menuExportHtml: 'Export as Single-File HTML…',
     menuOpenInDocs: 'Convert and Open in Docs',
@@ -782,6 +797,7 @@ const tMain = createI18n({
     menuNewMarkdown: 'AI Markdown',
     menuNewHtml: 'AI HTML',
     menuNewPdf: 'AI PDF',
+    menuMail: 'メール',
     menuExportPdf: 'PDF として書き出す…',
     menuExportHtml: '単一ファイル HTML として書き出す…',
     menuOpenInDocs: 'Docs 文書に変換して開く',
@@ -871,6 +887,7 @@ const tMain = createI18n({
     menuNewMarkdown: 'AI Markdown',
     menuNewHtml: 'AI HTML',
     menuNewPdf: 'AI PDF',
+    menuMail: '메일',
     menuExportPdf: 'PDF로 내보내기…',
     menuExportHtml: '단일 파일 HTML로 내보내기…',
     menuOpenInDocs: 'Docs 문서로 변환하여 열기',
@@ -959,6 +976,7 @@ const tMain = createI18n({
     menuNewMarkdown: 'AI Markdown',
     menuNewHtml: 'AI HTML',
     menuNewPdf: 'AI PDF',
+    menuMail: 'Courrier',
     menuExportPdf: 'Exporter en PDF…',
     menuExportHtml: 'Exporter en HTML (fichier unique)…',
     menuOpenInDocs: 'Convertir et ouvrir dans Docs',
@@ -1049,6 +1067,7 @@ const tMain = createI18n({
     menuNewMarkdown: 'AI Markdown',
     menuNewHtml: 'AI HTML',
     menuNewPdf: 'AI PDF',
+    menuMail: 'E-Mail',
     menuExportPdf: 'Als PDF exportieren…',
     menuExportHtml: 'Als Einzeldatei-HTML exportieren…',
     menuOpenInDocs: 'In Docs umwandeln und öffnen',
@@ -1139,6 +1158,7 @@ const tMain = createI18n({
     menuNewMarkdown: 'AI Markdown',
     menuNewHtml: 'AI HTML',
     menuNewPdf: 'AI PDF',
+    menuMail: 'Correo',
     menuExportPdf: 'Exportar como PDF…',
     menuExportHtml: 'Exportar como HTML de archivo único…',
     menuOpenInDocs: 'Convertir y abrir en Docs',
@@ -1229,6 +1249,7 @@ const tMain = createI18n({
     menuNewMarkdown: 'AI Markdown',
     menuNewHtml: 'AI HTML',
     menuNewPdf: 'AI PDF',
+    menuMail: 'อีเมล',
     menuExportPdf: 'ส่งออกเป็น PDF…',
     menuExportHtml: 'ส่งออกเป็น HTML ไฟล์เดียว…',
     menuOpenInDocs: 'แปลงและเปิดใน Docs',
@@ -1315,6 +1336,7 @@ const tMain = createI18n({
     menuNewMarkdown: 'AI Markdown',
     menuNewHtml: 'AI HTML',
     menuNewPdf: 'AI PDF',
+    menuMail: 'Email',
     menuExportPdf: 'Ekspor sebagai PDF…',
     menuExportHtml: 'Ekspor sebagai HTML satu file…',
     menuOpenInDocs: 'Konversi dan buka di Docs',
@@ -1405,6 +1427,7 @@ const tMain = createI18n({
     menuNewMarkdown: 'AI Markdown',
     menuNewHtml: 'AI HTML',
     menuNewPdf: 'AI PDF',
+    menuMail: 'Почта',
     menuExportPdf: 'Экспортировать в PDF…',
     menuExportHtml: 'Экспортировать в один файл HTML…',
     menuOpenInDocs: 'Преобразовать и открыть в Docs',
@@ -1495,6 +1518,7 @@ const tMain = createI18n({
     menuNewMarkdown: 'AI Markdown',
     menuNewHtml: 'AI HTML',
     menuNewPdf: 'AI PDF',
+    menuMail: 'البريد',
     menuExportPdf: 'تصدير بتنسيق PDF…',
     menuExportHtml: 'تصدير كملف HTML واحد…',
     menuOpenInDocs: 'التحويل والفتح في Docs',
@@ -1581,6 +1605,7 @@ const tMain = createI18n({
     menuNewMarkdown: 'AI Markdown',
     menuNewHtml: 'AI HTML',
     menuNewPdf: 'AI PDF',
+    menuMail: 'E-mail',
     menuExportPdf: 'Exportar como PDF…',
     menuExportHtml: 'Exportar como HTML de arquivo único…',
     menuOpenInDocs: 'Converter e abrir no Docs',
@@ -1671,6 +1696,7 @@ const tMain = createI18n({
     menuNewMarkdown: 'AI Markdown',
     menuNewHtml: 'AI HTML',
     menuNewPdf: 'AI PDF',
+    menuMail: 'Posta',
     menuExportPdf: 'Esporta come PDF…',
     menuExportHtml: 'Esporta come HTML a file singolo…',
     menuOpenInDocs: 'Converti e apri in Docs',
@@ -1761,6 +1787,7 @@ const tMain = createI18n({
     menuNewMarkdown: 'AI Markdown',
     menuNewHtml: 'AI HTML',
     menuNewPdf: 'AI PDF',
+    menuMail: 'Poczta',
     menuExportPdf: 'Eksportuj jako PDF…',
     menuExportHtml: 'Eksportuj jako pojedynczy plik HTML…',
     menuOpenInDocs: 'Konwertuj i otwórz w Docs',
@@ -1851,6 +1878,7 @@ const tMain = createI18n({
     menuNewMarkdown: 'AI Markdown',
     menuNewHtml: 'AI HTML',
     menuNewPdf: 'AI PDF',
+    menuMail: 'Pošta',
     menuExportPdf: 'Exportovat jako PDF…',
     menuExportHtml: 'Exportovat jako samostatné HTML…',
     menuOpenInDocs: 'Převést a otevřít v Docs',
@@ -1939,6 +1967,7 @@ const tMain = createI18n({
     menuNewMarkdown: 'AI Markdown',
     menuNewHtml: 'AI HTML',
     menuNewPdf: 'AI PDF',
+    menuMail: 'E-mail',
     menuExportPdf: 'Exporteren als PDF…',
     menuExportHtml: 'Exporteren als één HTML-bestand…',
     menuOpenInDocs: 'Converteren en openen in Docs',
@@ -2029,6 +2058,7 @@ const tMain = createI18n({
     menuNewMarkdown: 'AI Markdown',
     menuNewHtml: 'AI HTML',
     menuNewPdf: 'AI PDF',
+    menuMail: 'E-mel',
     menuExportPdf: 'Eksport sebagai PDF…',
     menuExportHtml: 'Eksport sebagai HTML fail tunggal…',
     menuOpenInDocs: 'Tukar dan buka dalam Docs',
@@ -2118,6 +2148,7 @@ const tMain = createI18n({
     menuNewMarkdown: 'AI Markdown',
     menuNewHtml: 'AI HTML',
     menuNewPdf: 'AI PDF',
+    menuMail: 'דואר',
     menuExportPdf: 'ייצוא כ-PDF…',
     menuExportHtml: 'ייצוא כ-HTML בקובץ יחיד…',
     menuOpenInDocs: 'המרה ופתיחה ב-Docs',
@@ -2205,6 +2236,7 @@ const tMain = createI18n({
     menuNewMarkdown: 'AI Markdown',
     menuNewHtml: 'AI HTML',
     menuNewPdf: 'AI PDF',
+    menuMail: 'मेल',
     menuExportPdf: 'PDF के रूप में निर्यात…',
     menuExportHtml: 'एकल-फ़ाइल HTML के रूप में निर्यात…',
     menuOpenInDocs: 'Docs में बदलें और खोलें',
@@ -2295,6 +2327,7 @@ const tMain = createI18n({
     menuNewMarkdown: 'AI Markdown',
     menuNewHtml: 'AI HTML',
     menuNewPdf: 'AI PDF',
+    menuMail: '郵件',
     menuExportPdf: '匯出為 PDF…',
     menuExportHtml: '匯出為單檔 HTML…',
     menuOpenInDocs: '轉換為 Docs 文件並開啟',
@@ -2569,15 +2602,17 @@ function createShellWindow(): void {
     // no extension: these tabs have no file on disk yet; the title becomes the
     // real filename (the localized untitled default + .docx etc.) once the first save lands
     (kind) =>
-      kind === 'docs'
-        ? tm('untitledDoc')
-        : kind === 'slides'
-          ? tm('untitledDeck')
-          : kind === 'markdown'
-            ? tm('untitledMarkdown')
-            : kind === 'html'
-              ? tm('untitledHtml')
-              : tm('untitledSheet'),
+      kind === 'mail'
+        ? tm('menuMail')
+        : kind === 'docs'
+          ? tm('untitledDoc')
+          : kind === 'slides'
+            ? tm('untitledDeck')
+            : kind === 'markdown'
+              ? tm('untitledMarkdown')
+              : kind === 'html'
+                ? tm('untitledHtml')
+                : tm('untitledSheet'),
   )
   tabManager = manager
 
@@ -3249,6 +3284,10 @@ function registerHomeIpc(): void {
     newHtmlTab()
   })
 
+  ipcMain.handle(HOME_CHANNELS.openMail, () => {
+    tabManager?.openMailTab()
+  })
+
   ipcMain.handle(HOME_CHANNELS.newPdf, (_event, opts?: NewFileOpts) => {
     rememberPendingDir('pdf', opts)
     void newPdfTab()
@@ -3704,6 +3743,7 @@ const TAB_MENU_ICON: Record<TabKind, keyof MenuIconSet> = {
   pdf: 'pdf',
   markdown: 'md',
   html: 'html',
+  mail: 'home',
 }
 
 // tab views see neither DOM events nor a focus change when the user clicks the
@@ -3794,6 +3834,7 @@ function registerTabsIpc(): void {
         click: () => void newPdfTab(),
       },
       { type: 'separator' },
+      { label: tm('menuMail'), click: () => tabManager?.openMailTab() },
       { label: tm('menuOpen'), click: () => void openFileViaDialog() },
     ])
     menu.popup({
@@ -3839,6 +3880,7 @@ function buildHomeMenu(): void {
         { label: tm('menuNewHtml'), click: () => newHtmlTab() },
         { label: tm('menuNewPdf'), click: () => void newPdfTab() },
         { type: 'separator' },
+        { label: tm('menuMail'), click: () => tabManager?.openMailTab() },
         {
           label: tm('menuOpen'),
           accelerator: 'CmdOrCtrl+O',
@@ -4612,8 +4654,7 @@ async function installMainProcessProxy(): Promise<void> {
   // the dispatcher below — forward the proxy to them via env
   setSearchProxyUrl(proxyUrl)
   try {
-    const { ProxyAgent, setGlobalDispatcher } = await import('undici')
-    setGlobalDispatcher(new ProxyAgent(proxyUrl))
+    await installProxyDispatcher(proxyUrl)
     // strip user:pass credentials before logging
     console.log('[proxy] main-process fetch via', proxyUrl.replace(/\/\/[^@/]*@/, '//***@'))
   } catch (e) {
@@ -4733,6 +4774,7 @@ app.whenReady().then(async () => {
     pdf: join(PDF_OUT, 'renderer'),
     markdown: join(MARKDOWN_OUT, 'renderer'),
     html: join(HTML_OUT, 'renderer'),
+    mail: join(MAIL_OUT, 'renderer'),
   })
   if (headlessArgv.kind !== 'none') {
     await runHeadlessExportEntry(headlessArgv)

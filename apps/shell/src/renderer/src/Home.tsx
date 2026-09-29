@@ -70,6 +70,24 @@ const DRAG_EXPAND_DELAY_MS = 600
 const TREE_STATE_KEY = 'home.folderTree'
 
 function FileBadge({ ext, size }: { ext: string; size: number }) {
+  if (ext === 'mail') {
+    return (
+      <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden="true">
+        <rect width="32" height="32" rx="7.5" fill="#0F6CBD" />
+        <rect
+          x="7"
+          y="9.5"
+          width="18"
+          height="13"
+          rx="2"
+          fill="none"
+          stroke="#fff"
+          strokeWidth="2"
+        />
+        <path d="M8 11l8 6 8-6" fill="none" stroke="#fff" strokeWidth="2" strokeLinejoin="round" />
+      </svg>
+    )
+  }
   const icon = FILE_ICONS[ext]
   if (icon) {
     return <img src={icon} width={size} height={size} alt="" aria-hidden="true" />
@@ -1442,6 +1460,12 @@ export function Home() {
       title: t('newPdf'),
       sub: '.pdf',
       action: () => window.aiOffice.newPdf(newFileOpts),
+    },
+    {
+      ext: 'mail',
+      title: t('newMail'),
+      sub: 'IMAP · SMTP',
+      action: () => window.aiOffice.openMail(),
     },
   ]
 

@@ -45,6 +45,7 @@ import {
   setActiveSlidesWebContents,
   slidesIsDirty,
 } from '../../../slides/src/main/slides-main'
+import { createMailView } from '../../../mail/src/main/mail-main'
 import type { DocumentTabKind, OpenDocumentTab, TabKind, TabSummary } from '../shared/tabs-api'
 
 interface TabRecord {
@@ -200,7 +201,7 @@ export class TabManager {
   }
 
   /**
-   * Documents an MCP agent may act on: every editor tab except Home (no file)
+   * Documents an MCP agent may act on: every editor tab except Home and Mail (no file)
    * and chrome-free Present tabs (a live preview of another tab's document, so
    * acting on it would double-count that document).
    *
@@ -209,7 +210,9 @@ export class TabManager {
    * renderer. Hence the async signature.
    */
   async openDocuments(): Promise<OpenDocumentTab[]> {
-    const tabs = this.tabs.filter((tab) => tab.kind !== 'home' && !tab.present && tab.view)
+    const tabs = this.tabs.filter(
+      (tab) => tab.kind !== 'home' && tab.kind !== 'mail' && !tab.present && tab.view,
+    )
     return Promise.all(
       tabs.map(async (tab) => ({
         id: tab.id,
@@ -366,6 +369,22 @@ export class TabManager {
       title: openPath ? basename(openPath) : this.untitled('html', 'AI HTML'),
       filePath: openPath,
     })
+    this.activateTab(id)
+    return id
+  }
+
+  /** the mailbox is one tab: opening it again brings the existing one forward */
+  openMailTab(): string {
+    const existing = this.tabs.find((t) => t.kind === 'mail')
+    if (existing) {
+      this.activateTab(existing.id)
+      return existing.id
+    }
+    const view = createMailView()
+    const id = `t${this.nextId++}`
+    this.shellWindow.contentView.addChildView(view)
+    view.setVisible(false)
+    this.tabs.push({ id, kind: 'mail', view, title: this.untitled('mail', 'Mail') })
     this.activateTab(id)
     return id
   }
