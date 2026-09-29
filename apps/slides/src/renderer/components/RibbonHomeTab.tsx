@@ -8,7 +8,7 @@ import { displayFontFamily } from '../konva-adapter'
 import { useSystemFontFamilies } from '../system-fonts'
 import { useFontCatalog } from '../font-manager'
 import {
-  GensparkMark,
+  SuiteMark,
   IconAiBeautify,
   IconAiFactCheck,
   IconAiImage,
@@ -216,16 +216,16 @@ export function RibbonHomeTab({ rb }: { rb: RibbonTabCtx }) {
   }
   return (
     <>
-      <Group label="Genspark AI">
+      <Group label="Suite AI">
         <button
           className={`rb-big ai-entry${aiOpen ? ' active' : ''}`}
           data-tip={t('aiOpenAssistant')}
           onClick={onToggleAi}
         >
           <span className="rb-big-icon">
-            <GensparkMark size={26} />
+            <SuiteMark size={26} />
           </span>
-          <span>Genspark AI</span>
+          <span>Suite AI</span>
         </button>
         <button
           className="rb-big ai-entry"

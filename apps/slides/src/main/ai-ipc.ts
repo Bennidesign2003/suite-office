@@ -4,7 +4,7 @@
  * to avoid renderer CORS), search tools, and the slides-only ai:* channels
  * (image generation, media analysis, style templates).
  */
-import { app, ipcMain, nativeImage, net, shell } from 'electron'
+import { app, ipcMain, nativeImage, net } from 'electron'
 import {
   appendFileSync,
   existsSync,
@@ -34,11 +34,7 @@ import {
   type LegacyAiSettings,
 } from '@genoffice/ai-provider'
 import { fetchRemoteImage } from '@genoffice/electron-utils'
-import {
-  webSearchTool,
-  imageSearchTool,
-  analyzeMediaTool,
-} from '@genoffice/ai-search'
+import { webSearchTool, imageSearchTool, analyzeMediaTool } from '@genoffice/ai-search'
 import { addPicture, editPictureSrcRect, replacePictureBytes } from '@genoffice/pptx-engine'
 import { matchesElementRef } from '@genoffice/pptx-engine/identity'
 import { coverCropFractions } from '@genoffice/pipelines/slides'

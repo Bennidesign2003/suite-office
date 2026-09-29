@@ -52,6 +52,6 @@ export function resolveDefaultSaveDir(configured: string | null, fallbackDir: st
 /** convenience for the Electron mains: settings lookup + fallback in one call */
 export function configuredDefaultSaveDir(app: PathProvider): string {
   const settingsPath = join(app.getPath('userData'), 'app-settings.json')
-  const fallback = join(app.getPath('documents'), 'GenOffice')
+  const fallback = join(app.getPath('documents'), 'Suite Office')
   return resolveDefaultSaveDir(readDefaultSaveDirSetting(settingsPath), fallback)
 }

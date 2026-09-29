@@ -93,9 +93,7 @@ import {
   withShown,
 } from './star-prompt'
 import { handleDroppedFiles } from './dropped-files'
-import {
-  setSearchProxyUrl,
-} from '@genoffice/ai-search'
+import { setSearchProxyUrl } from '@genoffice/ai-search'
 
 import {
   buildDocsMenu,
@@ -583,7 +581,7 @@ let cachedGithubStars: number | null = null
 async function fetchGithubStars(): Promise<number | null> {
   if (cachedGithubStars !== null) return cachedGithubStars
   try {
-    const response = await fetch('https://api.github.com/repos/genspark-ai/genoffice', {
+    const response = await fetch('https://api.github.com/repos/Bennidesign2003/suite-office', {
       headers: { Accept: 'application/vnd.github+json' },
       signal: AbortSignal.timeout(5000),
     })
@@ -2531,7 +2529,7 @@ function createShellWindow(): void {
     height: 900,
     minWidth: 720,
     minHeight: 550,
-    title: 'GenOffice',
+    title: 'Suite Office',
     // vibrancy: editor modules punch translucent regions (e.g. the slides
     // thumbnail pane) through to the desktop
     ...(process.platform === 'darwin'
@@ -2976,7 +2974,7 @@ function newDocTab(): void {
 
 /** MCP: open a blank docs tab and return its webContents id, for the visible-editor bridge */
 function openBlankDocsTabForMcp(): number {
-  if (!tabManager) throw new Error('GenOffice is not ready')
+  if (!tabManager) throw new Error('Suite Office is not ready')
   const tabId = tabManager.openDocsTab(undefined, { newBlank: true })
   const view = tabManager.docsTabs().find((t) => t.id === tabId)
   if (!view) throw new Error('the new document tab could not be opened')
@@ -2993,7 +2991,7 @@ function openBlankDocsTabForMcp(): number {
  * marking is skipped, the file name is the agent's business.
  */
 async function openBlankSheetsTabForMcp(): Promise<number> {
-  if (!tabManager) throw new Error('GenOffice is not ready')
+  if (!tabManager) throw new Error('Suite Office is not ready')
   const filePath = uniquePathIn(defaultSaveDir(), `${tm('untitledSheet')}.xlsx`)
   writeFileSync(filePath, await blankXlsxBuffer())
   const tabId = tabManager.openSheetsTab(filePath)
@@ -3064,7 +3062,7 @@ function abandonBlankTabForMcp(
 
 /** MCP: open a blank slides tab and return its webContents id, for the visible-deck bridge */
 function openBlankSlidesTabForMcp(): number {
-  if (!tabManager) throw new Error('GenOffice is not ready')
+  if (!tabManager) throw new Error('Suite Office is not ready')
   const tabId = tabManager.openSlidesTab()
   const view = tabManager.slidesTabs().find((t) => t.id === tabId)
   if (!view) throw new Error('the new presentation tab could not be opened')
@@ -3660,7 +3658,6 @@ function registerHomeIpc(): void {
     // 'later' needs no write: the display was already counted by the query
     if (action === 'starred') writeStarPrompt(withResolved(readStarPrompt()))
   })
-
 }
 
 function stringPaths(value: unknown): string[] {
@@ -4589,8 +4586,6 @@ function installDockMenu(): void {
 // Prefer proxy env vars (terminal launch); a packaged app launched from Finder inherits no shell
 // env vars, so fall back to the system HTTP proxy. The renderer uses Chromium's system proxy and
 // is unaffected. Same bootstrap as slides-main startSlidesStandalone.
-// awaited by login IPC so the first status probe / login click cannot race the proxy resolution
-let proxyBootstrap: Promise<void> = Promise.resolve()
 
 async function installMainProcessProxy(): Promise<void> {
   let proxyUrl = [
@@ -4783,7 +4778,7 @@ app.whenReady().then(async () => {
     }
   }
 
-  proxyBootstrap = installMainProcessProxy()
+  void installMainProcessProxy()
   app.setAccessibilitySupportEnabled(true)
   // Settle the shared uiLang from saved settings BEFORE any tab renderer can
   // ask 'app:get-language': the editor handlers return the i18n module's

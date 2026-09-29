@@ -83,7 +83,6 @@ import {
   fetchOllamaCatalog,
   testMediaProvider,
   type AiMediaProviderConfig,
-  type AiMediaProviderId,
   type AiSearchProviderId,
   resolveAiSettings,
   maxOutputTokensOf,
@@ -97,11 +96,7 @@ import {
   type OllamaCatalog,
   type LegacyAiSettings,
 } from '@genoffice/ai-provider'
-import {
-  testSearchProvider,
-  webSearchTool,
-  imageSearchTool,
-} from '@genoffice/ai-search'
+import { testSearchProvider, webSearchTool, imageSearchTool } from '@genoffice/ai-search'
 import type {
   AiDocContent,
   AttachmentAddResult,
@@ -254,7 +249,7 @@ const tMain = createI18n({
     menuWindow: '窗口',
     menuHelp: '帮助',
     menuShortcuts: '键盘快捷键',
-    menuDocsHelp: 'GenOffice Docs 帮助',
+    menuDocsHelp: 'Suite Office Docs 帮助',
   },
   en: {
     dlgOpenDoc: 'Open Document',
@@ -353,7 +348,7 @@ const tMain = createI18n({
     menuWindow: 'Window',
     menuHelp: 'Help',
     menuShortcuts: 'Keyboard Shortcuts',
-    menuDocsHelp: 'GenOffice Docs Help',
+    menuDocsHelp: 'Suite Office Docs Help',
   },
   ja: {
     dlgOpenDoc: '文書を開く',
@@ -452,7 +447,7 @@ const tMain = createI18n({
     menuWindow: 'ウィンドウ',
     menuHelp: 'ヘルプ',
     menuShortcuts: 'キーボードショートカット',
-    menuDocsHelp: 'GenOffice Docs ヘルプ',
+    menuDocsHelp: 'Suite Office Docs ヘルプ',
   },
   ko: {
     dlgOpenDoc: '문서 열기',
@@ -552,7 +547,7 @@ const tMain = createI18n({
     menuWindow: '창',
     menuHelp: '도움말',
     menuShortcuts: '키보드 바로 가기',
-    menuDocsHelp: 'GenOffice Docs 도움말',
+    menuDocsHelp: 'Suite Office Docs 도움말',
   },
   fr: {
     dlgOpenDoc: 'Ouvrir un document',
@@ -754,7 +749,7 @@ const tMain = createI18n({
     menuWindow: 'Fenster',
     menuHelp: 'Hilfe',
     menuShortcuts: 'Tastenkombinationen',
-    menuDocsHelp: 'GenOffice Docs-Hilfe',
+    menuDocsHelp: 'Suite Office Docs-Hilfe',
   },
   es: {
     dlgOpenDoc: 'Abrir documento',
@@ -1753,7 +1748,7 @@ const tMain = createI18n({
     menuWindow: 'Venster',
     menuHelp: 'Help',
     menuShortcuts: 'Sneltoetsen',
-    menuDocsHelp: 'GenOffice Docs Help',
+    menuDocsHelp: 'Suite Office Docs Help',
   },
   ms: {
     dlgOpenDoc: 'Buka Dokumen',
@@ -2051,7 +2046,7 @@ const tMain = createI18n({
     menuWindow: 'विंडो',
     menuHelp: 'सहायता',
     menuShortcuts: 'कीबोर्ड शॉर्टकट',
-    menuDocsHelp: 'GenOffice Docs सहायता',
+    menuDocsHelp: 'Suite Office Docs सहायता',
   },
   'zh-TW': {
     dlgOpenDoc: '開啟文件',
@@ -2148,7 +2143,7 @@ const tMain = createI18n({
     menuWindow: '視窗',
     menuHelp: '說明',
     menuShortcuts: '鍵盤快速鍵',
-    menuDocsHelp: 'GenOffice Docs 說明',
+    menuDocsHelp: 'Suite Office Docs 說明',
   },
 })
 const tm = (key: Parameters<typeof tMain>[1], params?: Parameters<typeof tMain>[2]) =>
@@ -2890,7 +2885,6 @@ export function registerAiIpc(): void {
     writeJson(SETTINGS_PATH(), settings)
   })
 
-
   ipcMain.handle('ai:stream', async (event, request: AiStreamRequest) => {
     const { requestId, settings, system, messages } = request
     const tools = request.tools ?? []
@@ -3003,7 +2997,6 @@ export function registerAiIpc(): void {
       }
     },
   )
-
 
   ipcMain.handle('ai:search-test', (_event, input: unknown) => {
     const { provider, apiKey } = (input ?? {}) as { provider?: AiSearchProviderId; apiKey?: string }
@@ -4531,7 +4524,7 @@ export function createDocsWindow(openPath?: string): BrowserWindow {
     height: 900,
     minWidth: 720,
     minHeight: 550,
-    title: 'GenOffice Docs',
+    title: 'Suite Office Docs',
     // Word-like custom title bar (document name centered, quick-access buttons)
     ...(process.platform === 'darwin'
       ? { titleBarStyle: 'hiddenInset' as const }

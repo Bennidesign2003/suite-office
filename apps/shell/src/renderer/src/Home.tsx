@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { DragEvent as ReactDragEvent, ReactElement } from 'react'
-import logoLockup from './assets/genoffice-logo.svg'
+import logoLockup from './assets/suite-logo.svg'
 import iconDocx from './assets/file-docx.svg'
 import iconXlsx from './assets/file-xlsx.svg'
 import iconPptx from './assets/file-pptx.svg'
@@ -645,7 +645,6 @@ function ConflictPrompt({ names, onChoose }: ConflictPromptProps) {
 // Clicking it opens the settings modal directly (SettingsModal.tsx), which hosts
 // login/logout plus preferences (language, theme, save location, update channel).
 
-const LOGIN_POLL_MS = 2500
 /**
  * Bottom-of-sidebar entry: the state of the local Ollama daemon, and the way
  * into Settings. It replaces upstream's account button — there is no account
@@ -2262,7 +2261,7 @@ export function Home() {
     <div className="home">
       <aside className="sidebar">
         <div className="sidebar-logo">
-          <img className="logo-lockup" src={logoLockup} alt="GenOffice" />
+          <img className="logo-lockup" src={logoLockup} alt="Suite Office" />
         </div>
         <nav className="sidebar-nav">
           <button

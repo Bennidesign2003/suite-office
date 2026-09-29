@@ -5,7 +5,7 @@ export const de = {
   aiEmptyBuildTitle: 'Lass die KI diese Arbeitsmappe für dich aufbauen',
   aiEmptyBuildBody:
     'Beschreibe die gewünschte Tabelle, Daten oder Diagramme — die KI erstellt sie direkt.',
-  aiGskLoginBtn: 'Bei Genspark anmelden',
+  aiGskLoginBtn: 'Bei Suite AI anmelden',
   aiUndelivered: 'Nicht gesendet',
   aiRetry: 'Erneut versuchen',
   aiOpenAssistant: 'KI-Assistenten öffnen',
@@ -50,13 +50,13 @@ export const de = {
   aiFileTooltip:
     'SHA-256 {sha}\nBeim Speichern werden nur die bearbeiteten Einträge neu geschrieben; alles andere bleibt erhalten.',
   aiFileMeta: '{sheets} Blätter · {entries} Einträge',
-  aiGensparkAccount: 'Genspark-Konto',
+  aiGensparkAccount: 'Suite AI-Konto',
   aiAccountChecking: 'Wird überprüft…',
   aiLoggedIn: 'Angemeldet',
   aiLoggedInAs: 'Angemeldet: {email}',
-  aiNotLoggedIn: 'Nicht angemeldet (KI-Funktionen erfordern ein Genspark-Konto)',
+  aiNotLoggedIn: 'Nicht angemeldet (KI-Funktionen erfordern ein Suite AI-Konto)',
   aiWaitingBrowserLogin: 'Warten auf Anmeldung im Browser…',
-  aiLoginGenspark: 'Bei Genspark anmelden',
+  aiLoginGenspark: 'Bei Suite AI anmelden',
   aiModel: 'Modell',
   aiCancel: 'Abbrechen',
   aiSave: 'Speichern',
@@ -67,7 +67,7 @@ export const de = {
   aiNetworkError:
     'Netzwerkproblem: Der KI-Dienst ist nicht erreichbar. Prüfe deine Verbindung und versuche es erneut',
   aiCreditsExhausted:
-    'Deine Genspark-Credits sind aufgebraucht. Lade unter genspark.ai/pricing auf und versuche es erneut',
+    'Deine Suite AI-Credits sind aufgebraucht. Lade unter genspark.ai/pricing auf und versuche es erneut',
   aiToolWorkbookContext: 'Arbeitsmappeninformationen lesen',
   aiToolReadRange: 'Bereich lesen',
   aiToolReadRangeOf: 'Bereich {range} lesen',

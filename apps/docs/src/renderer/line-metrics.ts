@@ -876,7 +876,7 @@ export function cssFontFamily(font: string, followAltName = true): string {
   if (f.includes('隶书') || f.includes('lisu'))
     return `${chain(font, 'Baoli SC', 'LiSu', CJK_SERIF)},serif`
   // Japanese/Korean/Traditional Chinese: fall back within the same script (win/mac family names as mutual backups) so Han glyphs don't render with Simplified forms.
-  // 'GenOffice *' entries are CJK-only local() aliases (fonts.css): the underlying
+  // 'Suite Office *' entries are CJK-only local() aliases (fonts.css): the underlying
   // system faces draw Cyrillic/Greek fullwidth, so those scripts must pass through
   const JA_SANS = ['Yu Gothic', 'GenOffice Hiragino Sans', 'Meiryo', 'Noto Sans JP']
   const JA_SERIF = [

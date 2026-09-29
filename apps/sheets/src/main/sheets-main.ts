@@ -80,11 +80,7 @@ import {
   decodeCsvBuffer,
   sheetCsvToXlsxBuffer,
 } from '@genoffice/xlsx-gateway/gateway/csv-import'
-import {
-  webSearchTool,
-  imageSearchTool,
-  setSearchProxyUrl,
-} from '@genoffice/ai-search'
+import { webSearchTool, imageSearchTool, setSearchProxyUrl } from '@genoffice/ai-search'
 import { parseFileToText } from '@genoffice/file-parse'
 import type { CellEdit, SheetStructuralOps } from '@genoffice/xlsx-gateway/gateway/xlsx-gateway'
 import {
@@ -1871,7 +1867,7 @@ export async function createSheetsWindow(
     minWidth: 720,
     minHeight: 550,
     show: false,
-    title: 'GenOffice Sheets',
+    title: 'Suite Office Sheets',
     // Traffic lights sit inside the toolbar row.
     ...(process.platform === 'darwin' ? { titleBarStyle: 'hiddenInset' as const } : {}),
     webPreferences: {

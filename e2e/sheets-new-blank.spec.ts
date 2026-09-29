@@ -31,7 +31,7 @@ test.describe('sheets: new blank workbook', () => {
       await sheets.waitForTimeout(1_500)
 
       // the backing file exists before any edit
-      const saveDir = join(scratch, 'GenOffice')
+      const saveDir = join(scratch, 'Suite Office')
       const created = (await readdir(saveDir)).filter((f) => f.endsWith('.xlsx'))
       expect(created).toHaveLength(1)
       const workbook = join(saveDir, created[0])
