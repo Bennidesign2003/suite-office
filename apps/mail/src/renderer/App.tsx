@@ -147,7 +147,9 @@ export default function App({
     let live = true
     void window.pimApi.listContacts(email).then((r) => {
       if (!live || !r.ok) return
-      setSenderKnown(r.value.some((c) => c.emails.some((e) => e.value.toLowerCase() === email)))
+      setSenderKnown(
+        (r.value ?? []).some((c) => c.emails.some((e) => e.value.toLowerCase() === email)),
+      )
     })
     return () => {
       live = false

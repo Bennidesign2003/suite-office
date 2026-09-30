@@ -79,6 +79,21 @@ function broadcast(change: PimChange): void {
   }
 }
 
+/**
+ * An imported .ics/.vcf file: UTF-8 when it is valid UTF-8, else Windows-1252
+ * (older Outlook exports), so umlauts do not turn into U+FFFD.
+ */
+export function decodeImport(bytes: Uint8Array): string {
+  const text = (() => {
+    try {
+      return new TextDecoder('utf-8', { fatal: true }).decode(bytes)
+    } catch {
+      return new TextDecoder('windows-1252').decode(bytes)
+    }
+  })()
+  return text.charCodeAt(0) === 0xfeff ? text.slice(1) : text
+}
+
 function windowOf(e: IpcMainInvokeEvent): BrowserWindow | undefined {
   return BrowserWindow.fromWebContents(e.sender) ?? undefined
 }
@@ -253,12 +268,10 @@ export function registerPimIpc(host: PimHost): void {
       result(() => cal.getEvent(calendarId, uid, occurrenceStart)),
   )
 
+  // after a failed write too: a conflict (412) re-synced the calendar, and the
+  // view should show what the server has now
   ipcMain.handle(PIM_CHANNELS.saveEvent, (_e, input: EventInput) =>
-    result(async () => {
-      const saved = await cal.saveEvent(input)
-      broadcast({ kind: 'calendar' })
-      return saved
-    }),
+    result(() => cal.saveEvent(input)).finally(() => broadcast({ kind: 'calendar' })),
   )
 
   ipcMain.handle(
@@ -270,10 +283,9 @@ export function registerPimIpc(host: PimHost): void {
       scope?: 'occurrence' | 'series',
       occurrenceStart?: string,
     ) =>
-      result(async () => {
-        await cal.deleteEvent(calendarId, uid, scope, occurrenceStart)
-        broadcast({ kind: 'calendar' })
-      }),
+      result(() => cal.deleteEvent(calendarId, uid, scope, occurrenceStart)).finally(() =>
+        broadcast({ kind: 'calendar' }),
+      ),
   )
 
   ipcMain.handle(PIM_CHANNELS.importIcs, (e, calendarId: string) =>
@@ -287,7 +299,10 @@ export function registerPimIpc(host: PimHost): void {
         ? dialog.showOpenDialog(win, options)
         : dialog.showOpenDialog(options))
       if (picked.canceled || !picked.filePaths[0]) return 0
-      const count = await cal.importIcs(calendarId, await readFile(picked.filePaths[0], 'utf8'))
+      const count = await cal.importIcs(
+        calendarId,
+        decodeImport(await readFile(picked.filePaths[0])),
+      )
       broadcast({ kind: 'calendar' })
       return count
     }),
@@ -319,18 +334,13 @@ export function registerPimIpc(host: PimHost): void {
   )
 
   ipcMain.handle(PIM_CHANNELS.saveContact, (_e, input: ContactInput) =>
-    result(async () => {
-      const saved = await con.saveContact(input)
-      broadcast({ kind: 'contacts' })
-      return saved
-    }),
+    result(() => con.saveContact(input)).finally(() => broadcast({ kind: 'contacts' })),
   )
 
   ipcMain.handle(PIM_CHANNELS.deleteContact, (_e, addressBookId: string, uid: string) =>
-    result(async () => {
-      await con.deleteContact(addressBookId, uid)
-      broadcast({ kind: 'contacts' })
-    }),
+    result(() => con.deleteContact(addressBookId, uid)).finally(() =>
+      broadcast({ kind: 'contacts' }),
+    ),
   )
 
   ipcMain.handle(PIM_CHANNELS.importVcf, (e, addressBookId: string) =>
@@ -344,7 +354,10 @@ export function registerPimIpc(host: PimHost): void {
         ? dialog.showOpenDialog(win, options)
         : dialog.showOpenDialog(options))
       if (picked.canceled || !picked.filePaths[0]) return 0
-      const count = await con.importVcf(addressBookId, await readFile(picked.filePaths[0], 'utf8'))
+      const count = await con.importVcf(
+        addressBookId,
+        decodeImport(await readFile(picked.filePaths[0])),
+      )
       broadcast({ kind: 'contacts' })
       return count
     }),

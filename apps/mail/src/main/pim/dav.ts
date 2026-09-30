@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { createDAVClient } from 'tsdav'
 
 /**
@@ -37,7 +38,9 @@ export function connectDav(
   user: string,
   password: string,
 ): Promise<DavClient> {
-  const cacheKey = `${key}\n${kind}\n${url}\n${user}\n${password.length}`
+  // a changed password must not reuse the client logged in with the old one
+  const secret = createHash('sha256').update(password).digest('hex')
+  const cacheKey = `${key}\n${kind}\n${url}\n${user}\n${secret}`
   let pending = clients.get(cacheKey)
   if (!pending) {
     pending = createDAVClient({

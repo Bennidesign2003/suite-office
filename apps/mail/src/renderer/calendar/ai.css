@@ -1,0 +1,125 @@
+/* Suite AI beside the calendar (calendar/CalendarAiPanel.tsx). The frame,
+ * chips, output box and prompt reuse the mail panel's .ai-* rules from
+ * styles.css; this adds the draft summary and the free-time picker. */
+
+.cal-ai-panel {
+  width: 340px;
+  flex: none;
+  height: 100%;
+}
+
+.cal-ai-example {
+  color: var(--text-tertiary);
+}
+
+.ai-chips button[aria-pressed='true'] {
+  border-color: var(--mail-ai-ink);
+  background: var(--mail-ai-soft);
+  color: var(--mail-ai-ink);
+}
+
+/* ---- parsed event draft ---- */
+
+.cal-ai-draft {
+  margin-bottom: 12px;
+}
+
+.cal-ai-draft-title {
+  margin-bottom: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.cal-ai-facts {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 10px;
+  margin: 0;
+}
+
+.cal-ai-facts dt {
+  color: var(--text-tertiary);
+}
+
+.cal-ai-facts dd {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.cal-ai-draft-notes {
+  margin-top: 8px;
+  color: var(--text-secondary);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* ---- free time ---- */
+
+.cal-ai-free {
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-8, 8px);
+}
+
+.cal-ai-free-head {
+  margin-bottom: 8px;
+}
+
+.cal-ai-free-head label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-secondary);
+}
+
+.cal-ai-free-head select {
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-6, 6px);
+  background: var(--surface);
+  color: var(--text);
+}
+
+.cal-ai-muted {
+  margin: 0 0 8px;
+  color: var(--text-secondary);
+}
+
+.cal-ai-day + .cal-ai-day {
+  margin-top: 10px;
+}
+
+.cal-ai-day-label {
+  font-weight: 600;
+}
+
+.cal-ai-day-note {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  overflow-wrap: anywhere;
+}
+
+.cal-ai-slots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.cal-ai-slots button {
+  padding: 3px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-6, 6px);
+  background: var(--surface);
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+
+.cal-ai-slots button:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+}

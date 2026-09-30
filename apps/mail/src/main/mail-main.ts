@@ -258,7 +258,10 @@ export function showMailModule(wc: Electron.WebContents, module: MailModule): vo
 
 function guardNavigation(view: WebContentsView): void {
   view.webContents.setWindowOpenHandler(({ url }) => {
-    const target = safeExternalUrl(url, { allowedProtocols: ['http:', 'https:', 'mailto:'] })
+    // tel: for the phone numbers on contact cards (hands off to the system's dialer)
+    const target = safeExternalUrl(url, {
+      allowedProtocols: ['http:', 'https:', 'mailto:', 'tel:'],
+    })
     if (target) void shell.openExternal(target)
     return { action: 'deny' }
   })

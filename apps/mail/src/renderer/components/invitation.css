@@ -1,0 +1,230 @@
+/* Meeting invitation card above a mail body (components/InvitationCard.tsx).
+ * Chrome only: the invitation's own data (calendar colors) comes in inline. */
+
+:root {
+  --invite-tentative: #a35200;
+}
+
+[data-theme='dark'] {
+  --invite-tentative: #f0a847;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --invite-tentative: #f0a847;
+  }
+}
+
+.invite-card {
+  display: flex;
+  gap: 12px;
+  margin: 0 0 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius-8, 8px);
+  background: var(--surface-subtle);
+}
+
+.invite-card.is-cancel {
+  border-left-color: var(--danger);
+}
+
+.invite-icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-8, 8px);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.invite-card.is-cancel .invite-icon {
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
+.invite-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.invite-kicker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.invite-kicker span {
+  flex: 1;
+}
+
+.invite-title {
+  margin: 2px 0 8px;
+  font-size: 15px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.invite-card.is-cancel .invite-title {
+  text-decoration: line-through;
+  color: var(--text-secondary);
+}
+
+.invite-facts {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 3px 12px;
+  margin: 0;
+}
+
+.invite-facts > div {
+  display: contents;
+}
+
+.invite-facts dt {
+  color: var(--text-tertiary);
+}
+
+.invite-facts dd {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.invite-rrule {
+  color: var(--text-secondary);
+}
+
+.invite-people {
+  margin-top: 10px;
+}
+
+.invite-people-head {
+  margin-bottom: 4px;
+  color: var(--text-tertiary);
+}
+
+.invite-tally {
+  margin-left: 8px;
+  color: var(--text-secondary);
+}
+
+.invite-people ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.invite-people li {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+}
+
+.invite-person {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 260px;
+}
+
+.invite-status {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--text-tertiary);
+}
+
+.invite-status.is-accepted {
+  color: var(--success);
+}
+
+.invite-status.is-declined {
+  color: var(--danger);
+}
+
+.invite-status.is-tentative {
+  color: var(--invite-tentative);
+}
+
+.invite-optional {
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.invite-more {
+  margin-top: 4px;
+  padding: 0;
+}
+
+.invite-note {
+  margin: 8px 0 0;
+}
+
+.invite-note.is-muted {
+  color: var(--text-secondary);
+}
+
+.invite-note.is-accepted {
+  color: var(--success);
+}
+
+.invite-note.is-declined {
+  color: var(--danger);
+}
+
+.invite-note.is-tentative {
+  color: var(--invite-tentative);
+}
+
+.invite-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.invite-cal {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 0 4px 0 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-6, 6px);
+  background: var(--surface);
+}
+
+.invite-cal select {
+  max-width: 220px;
+  padding: 5px 0;
+  border: 0;
+  outline: 0;
+  background: var(--surface);
+  cursor: pointer;
+}
+
+.invite-cal-dot {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--accent);
+}
