@@ -17,7 +17,12 @@ export const MAIL_CHANNELS = {
   saveAttachment: 'mail:save-attachment',
   pickAttachments: 'mail:pick-attachments',
   send: 'mail:send',
+  initialModule: 'mail:initial-module',
+  showModule: 'mail:show-module',
 } as const
+
+/** the three parts of the mail tab, like Outlook's module bar */
+export type MailModule = 'mail' | 'calendar' | 'contacts'
 
 export type UiTheme = 'system' | 'light' | 'dark'
 
@@ -175,6 +180,10 @@ export interface MailApi {
   ): Promise<MailResult<string>>
   pickAttachments(): Promise<string[]>
   send(mail: OutgoingMail): Promise<MailResult>
+
+  /** which part the tab was opened for (home screen cards) */
+  initialModule(): Promise<MailModule>
+  onShowModule(handler: (module: MailModule) => void): () => void
 
   getAiSettings(): Promise<AiSettings>
   aiStream(request: AiStreamRequest): Promise<void>

@@ -182,3 +182,17 @@ export function outgoingText(draft: Pick<Draft, 'text' | 'quoted'>): string {
   if (!draft.quoted) return own
   return `${own}\n\n${draft.quoted}`
 }
+
+/** "Anna Schmidt <anna@firma.de>", "\"Doe, John\" <j@x.de>" or a bare address → name and email */
+export function parseRecipient(value: string): { name: string; email: string } | null {
+  const trimmed = value.trim()
+  const angled = /^(.*?)<([^<>\s]+@[^<>\s]+)>\s*$/.exec(trimmed)
+  if (angled) {
+    const name = angled[1]!
+      .trim()
+      .replace(/^"(.*)"$/, '$1')
+      .trim()
+    return { name, email: angled[2]! }
+  }
+  return /^[^\s@<>]+@[^\s@<>]+$/.test(trimmed) ? { name: '', email: trimmed } : null
+}

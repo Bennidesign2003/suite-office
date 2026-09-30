@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState, type ReactElement } from 'react'
+import type { EventInput } from '../../shared/pim'
 import { AiUnconfiguredError, prompts, runAi, type AiRun, type MailContext } from '../ai'
+import { draftEventFromMail } from '../calendar/ai-calendar'
 import { languageName, type MailStringKey } from '../i18n'
 import { IconClose, SuiteMark } from './icons'
 
@@ -18,6 +20,8 @@ interface Props {
   senderName: string
   onApplyDraft(text: string): void
   onStartReply(text: string): void
+  /** hand an appointment found in the mail to the calendar */
+  onCreateEvent?(draft: Partial<EventInput>): void
   onClose(): void
 }
 
@@ -69,6 +73,23 @@ export function AiPanel(props: Props): ReactElement {
           setBusy(false)
         }
       })
+  }
+
+  const createEvent = async (context: MailContext): Promise<void> => {
+    run.current?.cancel()
+    run.current = null
+    setError('')
+    setOutput(null)
+    setBusy(true)
+    try {
+      const draft = await draftEventFromMail(context, lang)
+      if (draft) props.onCreateEvent?.(draft)
+      else setError(t('aiNoEvent'))
+    } catch (err) {
+      setError(err instanceof AiUnconfiguredError ? t('aiNoModel') : (err as Error).message)
+    } finally {
+      setBusy(false)
+    }
   }
 
   const stop = (): void => {
@@ -124,6 +145,11 @@ export function AiPanel(props: Props): ReactElement {
               >
                 {t('aiTranslate')}
               </button>
+              {props.onCreateEvent && (
+                <button disabled={busy} onClick={() => void createEvent(mail)}>
+                  {t('aiCreateEvent')}
+                </button>
+              )}
             </div>
             <div className="ai-reply-box">
               <input

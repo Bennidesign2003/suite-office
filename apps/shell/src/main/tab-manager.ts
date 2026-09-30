@@ -45,7 +45,8 @@ import {
   setActiveSlidesWebContents,
   slidesIsDirty,
 } from '../../../slides/src/main/slides-main'
-import { createMailView } from '../../../mail/src/main/mail-main'
+import { createMailView, showMailModule } from '../../../mail/src/main/mail-main'
+import type { MailModule } from '../../../mail/src/shared/ipc'
 import type { DocumentTabKind, OpenDocumentTab, TabKind, TabSummary } from '../shared/tabs-api'
 
 interface TabRecord {
@@ -374,13 +375,14 @@ export class TabManager {
   }
 
   /** the mailbox is one tab: opening it again brings the existing one forward */
-  openMailTab(): string {
+  openMailTab(module: MailModule = 'mail'): string {
     const existing = this.tabs.find((t) => t.kind === 'mail')
     if (existing) {
+      if (existing.view) showMailModule(existing.view.webContents, module)
       this.activateTab(existing.id)
       return existing.id
     }
-    const view = createMailView()
+    const view = createMailView(module)
     const id = `t${this.nextId++}`
     this.shellWindow.contentView.addChildView(view)
     view.setVisible(false)

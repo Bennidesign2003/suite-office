@@ -84,6 +84,91 @@ textarea {
   flex: 1;
 }
 
+/* ---- module rail (mail | calendar | contacts) ---- */
+
+.suite-root {
+  display: flex;
+  height: 100%;
+}
+
+.module-rail {
+  flex: none;
+  width: 64px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 8px 0;
+  background: var(--chrome-bg);
+  border-right: 1px solid var(--border);
+}
+
+.rail-btn {
+  position: relative;
+  width: 56px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 7px 2px 5px;
+  border: 0;
+  border-radius: var(--radius-6, 6px);
+  background: none;
+  color: var(--text-secondary);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.rail-btn span {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rail-btn:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
+.rail-btn.active {
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.rail-btn.active::before {
+  content: '';
+  position: absolute;
+  left: -4px;
+  top: 10px;
+  bottom: 10px;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--accent);
+}
+
+.rail-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.module-host {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+
+.module-pane {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.module-pane[hidden] {
+  display: none;
+}
+
 /* ---- layout ---- */
 
 .mail-app {
@@ -521,6 +606,20 @@ textarea {
 .meta-addr {
   margin-left: 6px;
   color: var(--text-tertiary);
+}
+
+.meta-add-contact {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: 8px;
+  font-size: 12px;
+  vertical-align: middle;
+}
+
+.meta-add-contact svg {
+  width: 14px;
+  height: 14px;
 }
 
 .meta-to {

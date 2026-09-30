@@ -393,6 +393,16 @@ configureMailRuntime({
   preloadPath: join(MAIL_OUT, 'preload', 'index.js'),
   rendererUrl: process.env.MAIL_RENDERER_URL,
   rendererFile: join(MAIL_OUT, 'renderer', 'index.html'),
+  language: () => currentLang(),
+  // calendar reminders: clicking the notification shows the calendar
+  openModule: (module) => {
+    if (shellWindow && !shellWindow.isDestroyed()) {
+      if (shellWindow.isMinimized()) shellWindow.restore()
+      shellWindow.show()
+      shellWindow.focus()
+    }
+    tabManager?.openMailTab(module)
+  },
 })
 // privileged-scheme registration is only legal before app ready
 registerPrivilegedSchemes()
@@ -626,6 +636,8 @@ const tMain = createI18n({
     menuNewHtml: 'AI HTML',
     menuNewPdf: 'AI PDF',
     menuMail: '邮件',
+    menuCalendar: '日历',
+    menuContacts: '联系人',
     menuExportPdf: '导出为 PDF…',
     menuExportHtml: '导出为单文件 HTML…',
     menuOpenInDocs: '转换为 Docs 文档并打开',
@@ -708,6 +720,8 @@ const tMain = createI18n({
     menuNewHtml: 'AI HTML',
     menuNewPdf: 'AI PDF',
     menuMail: 'Mail',
+    menuCalendar: 'Calendar',
+    menuContacts: 'Contacts',
     menuExportPdf: 'Export as PDF…',
     menuExportHtml: 'Export as Single-File HTML…',
     menuOpenInDocs: 'Convert and Open in Docs',
@@ -798,6 +812,8 @@ const tMain = createI18n({
     menuNewHtml: 'AI HTML',
     menuNewPdf: 'AI PDF',
     menuMail: 'メール',
+    menuCalendar: 'カレンダー',
+    menuContacts: '連絡先',
     menuExportPdf: 'PDF として書き出す…',
     menuExportHtml: '単一ファイル HTML として書き出す…',
     menuOpenInDocs: 'Docs 文書に変換して開く',
@@ -888,6 +904,8 @@ const tMain = createI18n({
     menuNewHtml: 'AI HTML',
     menuNewPdf: 'AI PDF',
     menuMail: '메일',
+    menuCalendar: '캘린더',
+    menuContacts: '연락처',
     menuExportPdf: 'PDF로 내보내기…',
     menuExportHtml: '단일 파일 HTML로 내보내기…',
     menuOpenInDocs: 'Docs 문서로 변환하여 열기',
@@ -977,6 +995,8 @@ const tMain = createI18n({
     menuNewHtml: 'AI HTML',
     menuNewPdf: 'AI PDF',
     menuMail: 'Courrier',
+    menuCalendar: 'Calendrier',
+    menuContacts: 'Contacts',
     menuExportPdf: 'Exporter en PDF…',
     menuExportHtml: 'Exporter en HTML (fichier unique)…',
     menuOpenInDocs: 'Convertir et ouvrir dans Docs',
@@ -1068,6 +1088,8 @@ const tMain = createI18n({
     menuNewHtml: 'AI HTML',
     menuNewPdf: 'AI PDF',
     menuMail: 'E-Mail',
+    menuCalendar: 'Kalender',
+    menuContacts: 'Kontakte',
     menuExportPdf: 'Als PDF exportieren…',
     menuExportHtml: 'Als Einzeldatei-HTML exportieren…',
     menuOpenInDocs: 'In Docs umwandeln und öffnen',
@@ -1159,6 +1181,8 @@ const tMain = createI18n({
     menuNewHtml: 'AI HTML',
     menuNewPdf: 'AI PDF',
     menuMail: 'Correo',
+    menuCalendar: 'Calendario',
+    menuContacts: 'Contactos',
     menuExportPdf: 'Exportar como PDF…',
     menuExportHtml: 'Exportar como HTML de archivo único…',
     menuOpenInDocs: 'Convertir y abrir en Docs',
@@ -1250,6 +1274,8 @@ const tMain = createI18n({
     menuNewHtml: 'AI HTML',
     menuNewPdf: 'AI PDF',
     menuMail: 'อีเมล',
+    menuCalendar: 'ปฏิทิน',
+    menuContacts: 'รายชื่อติดต่อ',
     menuExportPdf: 'ส่งออกเป็น PDF…',
     menuExportHtml: 'ส่งออกเป็น HTML ไฟล์เดียว…',
     menuOpenInDocs: 'แปลงและเปิดใน Docs',
@@ -1337,6 +1363,8 @@ const tMain = createI18n({
     menuNewHtml: 'AI HTML',
     menuNewPdf: 'AI PDF',
     menuMail: 'Email',
+    menuCalendar: 'Kalender',
+    menuContacts: 'Kontak',
     menuExportPdf: 'Ekspor sebagai PDF…',
     menuExportHtml: 'Ekspor sebagai HTML satu file…',
     menuOpenInDocs: 'Konversi dan buka di Docs',
@@ -1428,6 +1456,8 @@ const tMain = createI18n({
     menuNewHtml: 'AI HTML',
     menuNewPdf: 'AI PDF',
     menuMail: 'Почта',
+    menuCalendar: 'Календарь',
+    menuContacts: 'Контакты',
     menuExportPdf: 'Экспортировать в PDF…',
     menuExportHtml: 'Экспортировать в один файл HTML…',
     menuOpenInDocs: 'Преобразовать и открыть в Docs',
@@ -1519,6 +1549,8 @@ const tMain = createI18n({
     menuNewHtml: 'AI HTML',
     menuNewPdf: 'AI PDF',
     menuMail: 'البريد',
+    menuCalendar: 'التقويم',
+    menuContacts: 'جهات الاتصال',
     menuExportPdf: 'تصدير بتنسيق PDF…',
     menuExportHtml: 'تصدير كملف HTML واحد…',
     menuOpenInDocs: 'التحويل والفتح في Docs',
@@ -1606,6 +1638,8 @@ const tMain = createI18n({
     menuNewHtml: 'AI HTML',
     menuNewPdf: 'AI PDF',
     menuMail: 'E-mail',
+    menuCalendar: 'Calendário',
+    menuContacts: 'Contatos',
     menuExportPdf: 'Exportar como PDF…',
     menuExportHtml: 'Exportar como HTML de arquivo único…',
     menuOpenInDocs: 'Converter e abrir no Docs',
@@ -1697,6 +1731,8 @@ const tMain = createI18n({
     menuNewHtml: 'AI HTML',
     menuNewPdf: 'AI PDF',
     menuMail: 'Posta',
+    menuCalendar: 'Calendario',
+    menuContacts: 'Contatti',
     menuExportPdf: 'Esporta come PDF…',
     menuExportHtml: 'Esporta come HTML a file singolo…',
     menuOpenInDocs: 'Converti e apri in Docs',
@@ -1788,6 +1824,8 @@ const tMain = createI18n({
     menuNewHtml: 'AI HTML',
     menuNewPdf: 'AI PDF',
     menuMail: 'Poczta',
+    menuCalendar: 'Kalendarz',
+    menuContacts: 'Kontakty',
     menuExportPdf: 'Eksportuj jako PDF…',
     menuExportHtml: 'Eksportuj jako pojedynczy plik HTML…',
     menuOpenInDocs: 'Konwertuj i otwórz w Docs',
@@ -1879,6 +1917,8 @@ const tMain = createI18n({
     menuNewHtml: 'AI HTML',
     menuNewPdf: 'AI PDF',
     menuMail: 'Pošta',
+    menuCalendar: 'Kalendář',
+    menuContacts: 'Kontakty',
     menuExportPdf: 'Exportovat jako PDF…',
     menuExportHtml: 'Exportovat jako samostatné HTML…',
     menuOpenInDocs: 'Převést a otevřít v Docs',
@@ -1968,6 +2008,8 @@ const tMain = createI18n({
     menuNewHtml: 'AI HTML',
     menuNewPdf: 'AI PDF',
     menuMail: 'E-mail',
+    menuCalendar: 'Agenda',
+    menuContacts: 'Contacten',
     menuExportPdf: 'Exporteren als PDF…',
     menuExportHtml: 'Exporteren als één HTML-bestand…',
     menuOpenInDocs: 'Converteren en openen in Docs',
@@ -2059,6 +2101,8 @@ const tMain = createI18n({
     menuNewHtml: 'AI HTML',
     menuNewPdf: 'AI PDF',
     menuMail: 'E-mel',
+    menuCalendar: 'Kalendar',
+    menuContacts: 'Kenalan',
     menuExportPdf: 'Eksport sebagai PDF…',
     menuExportHtml: 'Eksport sebagai HTML fail tunggal…',
     menuOpenInDocs: 'Tukar dan buka dalam Docs',
@@ -2149,6 +2193,8 @@ const tMain = createI18n({
     menuNewHtml: 'AI HTML',
     menuNewPdf: 'AI PDF',
     menuMail: 'דואר',
+    menuCalendar: 'לוח שנה',
+    menuContacts: 'אנשי קשר',
     menuExportPdf: 'ייצוא כ-PDF…',
     menuExportHtml: 'ייצוא כ-HTML בקובץ יחיד…',
     menuOpenInDocs: 'המרה ופתיחה ב-Docs',
@@ -2237,6 +2283,8 @@ const tMain = createI18n({
     menuNewHtml: 'AI HTML',
     menuNewPdf: 'AI PDF',
     menuMail: 'मेल',
+    menuCalendar: 'कैलेंडर',
+    menuContacts: 'संपर्क',
     menuExportPdf: 'PDF के रूप में निर्यात…',
     menuExportHtml: 'एकल-फ़ाइल HTML के रूप में निर्यात…',
     menuOpenInDocs: 'Docs में बदलें और खोलें',
@@ -2328,6 +2376,8 @@ const tMain = createI18n({
     menuNewHtml: 'AI HTML',
     menuNewPdf: 'AI PDF',
     menuMail: '郵件',
+    menuCalendar: '行事曆',
+    menuContacts: '聯絡人',
     menuExportPdf: '匯出為 PDF…',
     menuExportHtml: '匯出為單檔 HTML…',
     menuOpenInDocs: '轉換為 Docs 文件並開啟',
@@ -3284,8 +3334,9 @@ function registerHomeIpc(): void {
     newHtmlTab()
   })
 
-  ipcMain.handle(HOME_CHANNELS.openMail, () => {
-    tabManager?.openMailTab()
+  ipcMain.handle(HOME_CHANNELS.openMail, (_event, module?: 'mail' | 'calendar' | 'contacts') => {
+    const known = module === 'calendar' || module === 'contacts' ? module : 'mail'
+    tabManager?.openMailTab(known)
   })
 
   ipcMain.handle(HOME_CHANNELS.newPdf, (_event, opts?: NewFileOpts) => {
@@ -3835,6 +3886,8 @@ function registerTabsIpc(): void {
       },
       { type: 'separator' },
       { label: tm('menuMail'), click: () => tabManager?.openMailTab() },
+      { label: tm('menuCalendar'), click: () => tabManager?.openMailTab('calendar') },
+      { label: tm('menuContacts'), click: () => tabManager?.openMailTab('contacts') },
       { label: tm('menuOpen'), click: () => void openFileViaDialog() },
     ])
     menu.popup({
@@ -3881,6 +3934,8 @@ function buildHomeMenu(): void {
         { label: tm('menuNewPdf'), click: () => void newPdfTab() },
         { type: 'separator' },
         { label: tm('menuMail'), click: () => tabManager?.openMailTab() },
+        { label: tm('menuCalendar'), click: () => tabManager?.openMailTab('calendar') },
+        { label: tm('menuContacts'), click: () => tabManager?.openMailTab('contacts') },
         {
           label: tm('menuOpen'),
           accelerator: 'CmdOrCtrl+O',

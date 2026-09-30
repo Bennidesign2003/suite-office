@@ -70,6 +70,30 @@ const DRAG_EXPAND_DELAY_MS = 600
 const TREE_STATE_KEY = 'home.folderTree'
 
 function FileBadge({ ext, size }: { ext: string; size: number }) {
+  if (ext === 'calendar') {
+    return (
+      <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden="true">
+        <rect width="32" height="32" rx="7.5" fill="#0F6CBD" />
+        <rect
+          x="7"
+          y="8.5"
+          width="18"
+          height="16"
+          rx="2"
+          fill="none"
+          stroke="#fff"
+          strokeWidth="2"
+        />
+        <path
+          d="M7 13.5h18M12 6.5v4M20 6.5v4"
+          stroke="#fff"
+          strokeWidth="2"
+          strokeLinecap="round"
+        />
+        <rect x="11" y="16.5" width="4" height="4" rx="0.8" fill="#fff" />
+      </svg>
+    )
+  }
   if (ext === 'mail') {
     return (
       <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden="true">
@@ -1466,6 +1490,12 @@ export function Home() {
       title: t('newMail'),
       sub: 'IMAP · SMTP',
       action: () => window.aiOffice.openMail(),
+    },
+    {
+      ext: 'calendar',
+      title: t('newCalendar'),
+      sub: 'CalDAV · ICS',
+      action: () => window.aiOffice.openMail('calendar'),
     },
   ]
 

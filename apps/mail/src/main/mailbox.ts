@@ -8,6 +8,7 @@ import { simpleParser, type AddressObject, type Attachment, type ParsedMail } fr
 import nodemailer from 'nodemailer'
 import MailComposer from 'nodemailer/lib/mail-composer'
 import { basename } from 'node:path'
+import type { Invitation } from '../shared/pim'
 import type {
   MailAddress,
   MailFolder,
@@ -253,6 +254,14 @@ export function embedInlineImages(html: string, attachments: Attachment[]): stri
   })
 }
 
+type InvitationHook = (parsed: ParsedMail) => Invitation | undefined
+let invitationHook: InvitationHook | null = null
+
+/** the calendar side reads meeting invitations out of opened messages */
+export function setInvitationHook(hook: InvitationHook | null): void {
+  invitationHook = hook
+}
+
 /** the last opened message's parts, for saving an attachment without refetching */
 const recentParsed = new Map<string, ParsedMail>()
 const parsedKey = (accountId: string, path: string, uid: number): string =>
@@ -287,7 +296,18 @@ export async function getMessage(
   uid: number,
 ): Promise<MailMessage> {
   const parsed = await fetchParsed(creds, path, uid, true)
-  const listed = parsed.attachments.filter((a) => a.contentDisposition !== 'inline' || !a.contentId)
+  let invitation: Invitation | undefined
+  try {
+    invitation = invitationHook?.(parsed)
+  } catch {
+    // a broken calendar part must not keep the mail from opening
+    invitation = undefined
+  }
+  const listed = parsed.attachments.filter(
+    (a) =>
+      (a.contentDisposition !== 'inline' || !a.contentId) &&
+      !(invitation && /^(text\/calendar|application\/ics)$/i.test(a.contentType)),
+  )
   const html =
     typeof parsed.html === 'string' ? embedInlineImages(parsed.html, parsed.attachments) : ''
   const refs = parsed.references
@@ -311,6 +331,7 @@ export async function getMessage(
       size: a.size,
     })),
     hasRemoteContent: REMOTE_RE.test(html),
+    ...(invitation ? { invitation } : {}),
   }
 }
 
@@ -410,8 +431,14 @@ export async function sendMail(creds: Credentials, mail: OutgoingMail): Promise<
   } catch (err) {
     throw friendlyError(err)
   }
+  await keepSentCopy(creds, message)
+}
+
+type ComposerOptions = ConstructorParameters<typeof MailComposer>[0]
+
+/** keep a copy in "Sent", like every desktop client does */
+async function keepSentCopy(creds: Credentials, message: ComposerOptions): Promise<void> {
   if (SERVER_SAVES_SENT.test(creds.account.smtp.host)) return
-  // keep a copy in "Sent", like every desktop client does
   try {
     const sent = await specialFolder(creds, '\\Sent')
     if (!sent) return
@@ -421,6 +448,35 @@ export async function sendMail(creds: Credentials, mail: OutgoingMail): Promise<
   } catch {
     // the mail went out; a missing copy is not worth an error
   }
+}
+
+/**
+ * A meeting message (iTIP): the calendar object travels as a text/calendar
+ * alternative with its METHOD, which is what Outlook, Google and Apple look
+ * for to show Accept/Decline buttons.
+ */
+export async function sendCalendarMail(
+  creds: Credentials,
+  to: string[],
+  subject: string,
+  text: string,
+  ics: string,
+  method: 'REQUEST' | 'CANCEL' | 'REPLY',
+): Promise<void> {
+  if (!to.length) return
+  const message = {
+    from: sender(creds.account),
+    to,
+    subject,
+    text,
+    icalEvent: { method, content: ics, filename: method === 'REPLY' ? 'reply.ics' : 'invite.ics' },
+  }
+  try {
+    await transport(creds.account, creds.password).sendMail(message)
+  } catch (err) {
+    throw friendlyError(err)
+  }
+  await keepSentCopy(creds, message)
 }
 
 export async function markAnswered(creds: Credentials, path: string, uid: number): Promise<void> {

@@ -119,8 +119,8 @@ export interface HomeApi {
   newMarkdown(opts?: NewFileOpts): Promise<void>
   /** open a blank html editor tab */
   newHtml(opts?: NewFileOpts): Promise<void>
-  /** open (or bring forward) the mailbox tab */
-  openMail(): Promise<void>
+  /** open (or bring forward) the mail tab, on mail, calendar or contacts */
+  openMail(module?: 'mail' | 'calendar' | 'contacts'): Promise<void>
   /** create a blank single-page PDF in the default save folder and open it */
   newPdf(opts?: NewFileOpts): Promise<void>
   /** drop entries from the recent list (does not touch the files) */

@@ -61,10 +61,23 @@ export const IconEnvelopeOpen = () => (
     <path d="M2.5 8 10 12.5 17.5 8" />
   </Svg>
 )
-export const IconEnvelope = () => (
-  <Svg>
+export const IconEnvelope = ({ size = 18 }: { size?: number }) => (
+  <Svg size={size}>
     <rect x="2.5" y="4.5" width="15" height="11" rx="1.5" />
     <path d="m3 5.5 7 5.5 7-5.5" />
+  </Svg>
+)
+export const IconCalendar = ({ size = 18 }: { size?: number }) => (
+  <Svg size={size}>
+    <rect x="2.5" y="3.5" width="15" height="14" rx="2" />
+    <path d="M2.5 7.5h15M6.5 2v3M13.5 2v3M6 11h2M9 11h2M12 11h2M6 14h2M9 14h2" />
+  </Svg>
+)
+export const IconPeople = ({ size = 18 }: { size?: number }) => (
+  <Svg size={size}>
+    <circle cx="7.5" cy="7" r="3" />
+    <path d="M2 16.5a5.5 5.5 0 0 1 11 0" />
+    <path d="M13 4.2a3 3 0 0 1 0 5.6M15 12a5.5 5.5 0 0 1 3 4.5" />
   </Svg>
 )
 export const IconFlag = () => (

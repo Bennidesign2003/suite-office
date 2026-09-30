@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
 import type { MailAccountInfo, MailFolder, MailMessage, MailSummary } from '../shared/ipc'
 import type { MailContext } from './ai'
+import type { CalendarInfo, EventInput } from '../shared/pim'
 import { AccountDialog } from './components/AccountDialog'
+import { InvitationCard } from './components/InvitationCard'
+import { splitRecipients } from './contacts/address-tokens'
 import { AiPanel, type AiMode } from './components/AiPanel'
 import { Composer } from './components/Composer'
 import {
@@ -32,6 +35,7 @@ import {
   listDate,
   messageText,
   outgoingText,
+  parseRecipient,
   readerDocument,
   replyDraft,
   type Draft,
@@ -71,8 +75,31 @@ function contextOf(msg: MailMessage, locale: string): MailContext {
   }
 }
 
-export default function App({ initialLang }: { initialLang: string }): ReactElement {
-  const [lang, setLang] = useState(initialLang)
+export interface MailRequest {
+  kind: 'compose'
+  to: string
+}
+
+interface MailAppProps {
+  lang: string
+  /** false while the calendar or contacts are in front: no keyboard shortcuts then */
+  active: boolean
+  /** a request from another module (contacts: "write to …") */
+  request?: MailRequest | null
+  onRequestHandled?(): void
+  /** switch to the calendar with a new event prefilled (Suite AI, invitations) */
+  onCreateEvent(draft: Partial<EventInput>): void
+  onOpenCalendar(): void
+}
+
+export default function App({
+  lang,
+  active,
+  request,
+  onRequestHandled,
+  onCreateEvent,
+  onOpenCalendar,
+}: MailAppProps): ReactElement {
   const t = useMemo(() => translator(lang), [lang])
 
   const [accounts, setAccounts] = useState<MailAccountInfo[] | null>(null)
@@ -98,7 +125,34 @@ export default function App({ initialLang }: { initialLang: string }): ReactElem
   const listRequest = useRef(0)
   const messageRequest = useRef(0)
 
-  useEffect(() => window.mailApi.onLanguageChanged(setLang), [])
+  const [calendars, setCalendars] = useState<CalendarInfo[]>([])
+  const [responding, setResponding] = useState(false)
+  /** the open message's sender is already a contact (null: unknown / no contacts module) */
+  const [senderKnown, setSenderKnown] = useState<boolean | null>(null)
+
+  // the invitation card needs to know where an accepted meeting can go
+  useEffect(() => {
+    if (!message?.invitation || !window.pimApi) return
+    let live = true
+    void window.pimApi.listCalendars().then((list) => live && setCalendars(list))
+    return () => {
+      live = false
+    }
+  }, [message])
+
+  useEffect(() => {
+    setSenderKnown(null)
+    const email = message?.from[0]?.address?.toLowerCase()
+    if (!email || !window.pimApi) return
+    let live = true
+    void window.pimApi.listContacts(email).then((r) => {
+      if (!live || !r.ok) return
+      setSenderKnown(r.value.some((c) => c.emails.some((e) => e.value.toLowerCase() === email)))
+    })
+    return () => {
+      live = false
+    }
+  }, [message])
 
   const flash = useCallback((text: string, error = false) => {
     setNotice({ text, error })
@@ -270,6 +324,45 @@ export default function App({ initialLang }: { initialLang: string }): ReactElem
     setCompose({ accountId: account.id, draft, context })
   }
 
+  // "write to …" from the contacts module: a mail being written gains the
+  // recipient instead of being thrown away
+  useEffect(() => {
+    if (request?.kind !== 'compose' || !account) return
+    setCompose((current) => {
+      if (!current) {
+        return { accountId: account.id, draft: { ...emptyDraft(), to: request.to }, context: null }
+      }
+      const to = current.draft.to.trim().replace(/[,;]\s*$/, '')
+      const email = parseRecipient(request.to)?.email.toLowerCase()
+      if (email && to.toLowerCase().includes(email)) return current
+      return {
+        ...current,
+        draft: { ...current.draft, to: to ? `${to}, ${request.to}` : request.to },
+      }
+    })
+    onRequestHandled?.()
+  }, [request, account, onRequestHandled])
+
+  const addSenderToContacts = async (): Promise<void> => {
+    const from = message?.from[0]
+    if (!from?.address) return
+    const books = await window.pimApi.listAddressBooks()
+    const book = books.find((b) => !b.readOnly)
+    if (!book) return
+    const name = displayName(from)
+    const r = await window.pimApi.saveContact({
+      addressBookId: book.id,
+      name: from.name?.trim() || from.address,
+      emails: [{ type: '', value: from.address }],
+    })
+    if (!r.ok) {
+      flash(r.error ?? '', true)
+      return
+    }
+    setSenderKnown(true)
+    flash(t('contactSaved', { name }))
+  }
+
   const replyTo = (mode: 'reply' | 'replyAll', text = ''): void => {
     if (!message || !account) return
     const name = displayName(message.from[0] ?? { name: '', address: '' })
@@ -316,6 +409,11 @@ export default function App({ initialLang }: { initialLang: string }): ReactElem
       return
     }
     flash(t('sent'))
+    const recipients = [draft.to, draft.cc, draft.bcc]
+      .flatMap((field) => splitRecipients(field))
+      .map(parseRecipient)
+      .filter((r): r is { name: string; email: string } => r !== null)
+    if (recipients.length) void window.pimApi?.rememberRecipients(recipients).catch(() => undefined)
     if (draft.answering) {
       const uid = draft.answering.uid
       setMessages((list) => list.map((m) => (m.uid === uid ? { ...m, answered: true } : m)))
@@ -335,7 +433,7 @@ export default function App({ initialLang }: { initialLang: string }): ReactElem
     const onKey = (e: KeyboardEvent): void => {
       const el = e.target as HTMLElement | null
       if (el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName))) return
-      if (e.metaKey || e.ctrlKey || e.altKey || compose) return
+      if (!active || e.metaKey || e.ctrlKey || e.altKey || compose) return
       if (e.key === 'Delete' || e.key === 'Backspace') void remove()
       else if (e.key === 'r') replyTo('reply')
       else if (e.key === 'n') startCompose(emptyDraft())
@@ -598,6 +696,7 @@ export default function App({ initialLang }: { initialLang: string }): ReactElem
         {compose ? (
           <Composer
             t={t}
+            lang={lang}
             accounts={accounts}
             accountId={compose.accountId}
             draft={compose.draft}
@@ -622,6 +721,14 @@ export default function App({ initialLang }: { initialLang: string }): ReactElem
                 <div className="meta-from">
                   <strong>{displayName(message.from[0] ?? { name: '', address: '' })}</strong>
                   <span className="meta-addr">&lt;{message.from[0]?.address}&gt;</span>
+                  {senderKnown === false && (
+                    <button
+                      className="link-btn meta-add-contact"
+                      onClick={() => void addSenderToContacts()}
+                    >
+                      <IconPlus /> {t('addToContacts')}
+                    </button>
+                  )}
                 </div>
                 <div className="meta-to">
                   {t('to')}: {formatAddressList(message.to)}
@@ -656,6 +763,46 @@ export default function App({ initialLang }: { initialLang: string }): ReactElem
                 ))}
               </ul>
             )}
+            {message.invitation && (
+              <InvitationCard
+                invitation={message.invitation}
+                lang={lang}
+                calendars={calendars}
+                busy={responding}
+                onOpenCalendar={onOpenCalendar}
+                onRespond={async (answer, calendarId) => {
+                  if (!location) return
+                  setResponding(true)
+                  const r = await window.pimApi.respondInvitation({
+                    accountId: location.accountId,
+                    folder: location.folder,
+                    uid: message.uid,
+                    answer,
+                    calendarId,
+                    lang,
+                  })
+                  setResponding(false)
+                  if (!r.ok) {
+                    flash(r.error ?? '', true)
+                    return
+                  }
+                  flash(t(answer === 'declined' ? 'inviteDeclined' : 'inviteSaved'))
+                  void open(message.uid)
+                }}
+                onRemove={async () => {
+                  const invitation = message.invitation
+                  if (!invitation?.existingEventId) return
+                  setResponding(true)
+                  const r = await window.pimApi.deleteEvent(
+                    invitation.existingEventId,
+                    invitation.uid,
+                  )
+                  setResponding(false)
+                  if (!r.ok) flash(r.error ?? '', true)
+                  else void open(message.uid)
+                }}
+              />
+            )}
             {message.hasRemoteContent && !allowRemote && (
               <div className="remote-banner">
                 <span>{t('remoteBlocked')}</span>
@@ -688,6 +835,7 @@ export default function App({ initialLang }: { initialLang: string }): ReactElem
             compose && setCompose({ ...compose, draft: { ...compose.draft, text } })
           }
           onStartReply={(text) => replyTo('reply', text)}
+          onCreateEvent={onCreateEvent}
           onClose={() => setAiOpen(false)}
         />
       )}

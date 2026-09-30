@@ -109,6 +109,16 @@ const de = {
   replyHeader: 'Am {date} schrieb {name}:',
   forwardHeader: '---------- Weitergeleitete Nachricht ----------',
   errorPrefix: 'Fehler',
+  inviteSaved: 'Termin im Kalender gespeichert.',
+  inviteDeclined: 'Einladung abgelehnt.',
+  aiCreateEvent: 'Termin erstellen',
+  aiNoEvent: 'In dieser E-Mail wurde kein Termin gefunden.',
+  moduleMail: 'E-Mail',
+  moduleCalendar: 'Kalender',
+  moduleContacts: 'Kontakte',
+  moduleSwitcher: 'Bereiche',
+  addToContacts: 'Zu Kontakten hinzufügen',
+  contactSaved: '{name} wurde zu den Kontakten hinzugefügt.',
 } as const
 
 type Key = keyof typeof de
@@ -213,6 +223,16 @@ const en: Record<Key, string> = {
   replyHeader: 'On {date}, {name} wrote:',
   forwardHeader: '---------- Forwarded message ----------',
   errorPrefix: 'Error',
+  inviteSaved: 'Saved to your calendar.',
+  inviteDeclined: 'Invitation declined.',
+  aiCreateEvent: 'Create event',
+  aiNoEvent: 'No appointment found in this email.',
+  moduleMail: 'Mail',
+  moduleCalendar: 'Calendar',
+  moduleContacts: 'Contacts',
+  moduleSwitcher: 'Modules',
+  addToContacts: 'Add to contacts',
+  contactSaved: '{name} was added to your contacts.',
 }
 
 const tables: Record<string, Record<Key, string>> = { de, en }

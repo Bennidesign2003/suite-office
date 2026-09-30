@@ -2,12 +2,14 @@ import { useState, type ReactElement } from 'react'
 import type { MailAccountInfo } from '../../shared/ipc'
 import type { Draft } from '../format'
 import type { MailStringKey } from '../i18n'
+import { AddressInput } from './AddressInput'
 import { IconClose, IconPaperclip, IconSend } from './icons'
 
 type T = (key: MailStringKey, vars?: Record<string, string>) => string
 
 interface Props {
   t: T
+  lang: string
   accounts: MailAccountInfo[]
   accountId: string
   draft: Draft
@@ -24,6 +26,7 @@ function basename(path: string): string {
 
 export function Composer({
   t,
+  lang,
   accounts,
   accountId,
   draft,
@@ -83,11 +86,12 @@ export function Composer({
         )}
         <label className="field">
           <span>{t('to')}</span>
-          <input
+          <AddressInput
             value={draft.to}
-            onChange={(e) => set({ to: e.target.value })}
+            onChange={(to) => set({ to })}
+            lang={lang}
             autoFocus={!draft.to}
-            spellCheck={false}
+            ariaLabel={t('to')}
           />
           {!showCc && (
             <button type="button" className="link-btn" onClick={() => setShowCc(true)}>
@@ -99,18 +103,20 @@ export function Composer({
           <>
             <label className="field">
               <span>{t('cc')}</span>
-              <input
+              <AddressInput
                 value={draft.cc}
-                onChange={(e) => set({ cc: e.target.value })}
-                spellCheck={false}
+                onChange={(cc) => set({ cc })}
+                lang={lang}
+                ariaLabel={t('cc')}
               />
             </label>
             <label className="field">
               <span>{t('bcc')}</span>
-              <input
+              <AddressInput
                 value={draft.bcc}
-                onChange={(e) => set({ bcc: e.target.value })}
-                spellCheck={false}
+                onChange={(bcc) => set({ bcc })}
+                lang={lang}
+                ariaLabel={t('bcc')}
               />
             </label>
           </>

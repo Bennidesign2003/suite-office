@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron'
 import type { AiStreamChunk } from '@genoffice/ai-provider'
-import { MAIL_CHANNELS, type MailApi, type UiTheme } from '../shared/ipc'
+import { MAIL_CHANNELS, type MailApi, type MailModule, type UiTheme } from '../shared/ipc'
+import { PIM_CHANNELS, type PimApi, type PimChange } from '../shared/pim'
 
 function subscribe<T>(channel: string, handler: (value: T) => void): () => void {
   const listener = (_e: IpcRendererEvent, value: T) => handler(value)
@@ -36,10 +37,51 @@ const api: MailApi = {
   pickAttachments: () => ipcRenderer.invoke(MAIL_CHANNELS.pickAttachments),
   send: (mail) => ipcRenderer.invoke(MAIL_CHANNELS.send, mail),
 
+  initialModule: () => ipcRenderer.invoke(MAIL_CHANNELS.initialModule),
+  onShowModule: (handler) => subscribe<MailModule>(MAIL_CHANNELS.showModule, handler),
+
   getAiSettings: () => ipcRenderer.invoke('ai:get-settings'),
   aiStream: (request) => ipcRenderer.invoke('ai:stream', request),
   aiStreamCancel: (requestId) => ipcRenderer.invoke('ai:stream-cancel', requestId),
   onAiStream: (handler) => subscribe<AiStreamChunk>('ai:stream-chunk', handler),
 }
 
+const pimApi: PimApi = {
+  listSources: () => ipcRenderer.invoke(PIM_CHANNELS.listSources),
+  saveSource: (input) => ipcRenderer.invoke(PIM_CHANNELS.saveSource, input),
+  removeSource: (id) => ipcRenderer.invoke(PIM_CHANNELS.removeSource, id),
+  testSource: (input) => ipcRenderer.invoke(PIM_CHANNELS.testSource, input),
+  guessDav: (email) => ipcRenderer.invoke(PIM_CHANNELS.guessDav, email),
+  sync: (sourceId) => ipcRenderer.invoke(PIM_CHANNELS.sync, sourceId),
+
+  listCalendars: () => ipcRenderer.invoke(PIM_CHANNELS.listCalendars),
+  updateCalendar: (id, patch) => ipcRenderer.invoke(PIM_CHANNELS.updateCalendar, id, patch),
+  createCalendar: (sourceId, name, color) =>
+    ipcRenderer.invoke(PIM_CHANNELS.createCalendar, sourceId, name, color),
+  listEvents: (range) => ipcRenderer.invoke(PIM_CHANNELS.listEvents, range),
+  getEvent: (calendarId, uid, occurrenceStart) =>
+    ipcRenderer.invoke(PIM_CHANNELS.getEvent, calendarId, uid, occurrenceStart),
+  saveEvent: (input) => ipcRenderer.invoke(PIM_CHANNELS.saveEvent, input),
+  deleteEvent: (calendarId, uid, scope, occurrenceStart) =>
+    ipcRenderer.invoke(PIM_CHANNELS.deleteEvent, calendarId, uid, scope, occurrenceStart),
+  importIcs: (calendarId) => ipcRenderer.invoke(PIM_CHANNELS.importIcs, calendarId),
+  exportIcs: (calendarId) => ipcRenderer.invoke(PIM_CHANNELS.exportIcs, calendarId),
+
+  listAddressBooks: () => ipcRenderer.invoke(PIM_CHANNELS.listAddressBooks),
+  listContacts: (query) => ipcRenderer.invoke(PIM_CHANNELS.listContacts, query),
+  saveContact: (input) => ipcRenderer.invoke(PIM_CHANNELS.saveContact, input),
+  deleteContact: (addressBookId, uid) =>
+    ipcRenderer.invoke(PIM_CHANNELS.deleteContact, addressBookId, uid),
+  importVcf: (addressBookId) => ipcRenderer.invoke(PIM_CHANNELS.importVcf, addressBookId),
+  exportVcf: (addressBookId) => ipcRenderer.invoke(PIM_CHANNELS.exportVcf, addressBookId),
+  suggestAddresses: (query, limit) =>
+    ipcRenderer.invoke(PIM_CHANNELS.suggestAddresses, query, limit),
+  rememberRecipients: (addresses) => ipcRenderer.invoke(PIM_CHANNELS.rememberRecipients, addresses),
+
+  respondInvitation: (response) => ipcRenderer.invoke(PIM_CHANNELS.respondInvitation, response),
+
+  onChanged: (handler) => subscribe<PimChange>(PIM_CHANNELS.changed, handler),
+}
+
 contextBridge.exposeInMainWorld('mailApi', api)
+contextBridge.exposeInMainWorld('pimApi', pimApi)

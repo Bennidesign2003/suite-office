@@ -9,6 +9,7 @@ import {
 } from '@genoffice/electron-utils'
 import {
   MAIL_CHANNELS,
+  type MailModule,
   type MailAccountInput,
   type MailResult,
   type OutgoingMail,
@@ -29,12 +30,17 @@ import {
   testAccount,
   type Credentials,
 } from './mailbox'
+import { registerPimIpc } from './pim/pim-ipc'
 import { guessServers } from './presets'
 
 interface MailRuntime {
   preloadPath: string
   rendererUrl?: string
   rendererFile: string
+  /** bring a mail tab to the front on the given module (set by the shell) */
+  openModule?: (module: MailModule) => void
+  /** the suite's UI language, for texts the main process writes */
+  language?: () => string
 }
 
 let runtime: MailRuntime = {
@@ -211,7 +217,43 @@ export function registerMailIpc(): void {
     }),
   )
 
+  ipcMain.handle(MAIL_CHANNELS.initialModule, (e): MailModule => {
+    const module = initialModules.get(e.sender.id) ?? 'mail'
+    initialModules.delete(e.sender.id)
+    return module
+  })
+
+  registerPimIpc({
+    accounts,
+    credentials,
+    secretBox: () => safeStorage,
+    openCalendar: () => openModule('calendar'),
+    language: () => runtime.language?.() ?? app.getLocale(),
+  })
+
   app.on('before-quit', () => void closeAll())
+}
+
+/** the part a freshly created tab opens on, until its page asks */
+const initialModules = new Map<number, MailModule>()
+
+/** the shell's tab, or (standalone) whatever mail window is open */
+function openModule(module: MailModule): void {
+  if (runtime.openModule) {
+    runtime.openModule(module)
+    return
+  }
+  const win = BrowserWindow.getAllWindows()[0]
+  if (!win) return
+  if (win.isMinimized()) win.restore()
+  win.show()
+  win.focus()
+  showMailModule(win.webContents, module)
+}
+
+/** switch an open mail tab to mail, calendar or contacts */
+export function showMailModule(wc: Electron.WebContents, module: MailModule): void {
+  if (!wc.isDestroyed()) wc.send(MAIL_CHANNELS.showModule, module)
 }
 
 function guardNavigation(view: WebContentsView): void {
@@ -222,7 +264,7 @@ function guardNavigation(view: WebContentsView): void {
   })
 }
 
-export function createMailView(): WebContentsView {
+export function createMailView(module: MailModule = 'mail'): WebContentsView {
   registerMailIpc()
   const view = new WebContentsView({
     webPreferences: {
@@ -233,6 +275,7 @@ export function createMailView(): WebContentsView {
     },
   })
   guardNavigation(view)
+  if (module !== 'mail') initialModules.set(view.webContents.id, module)
   void view.webContents.loadURL(rendererUrl(runtime.rendererUrl, 'mail', { mode: 'tab' }))
   return view
 }

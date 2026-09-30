@@ -99,8 +99,8 @@ const homeApi: HomeApi = {
   async newMarkdown(opts) {
     await ipcRenderer.invoke(HOME_CHANNELS.newMarkdown, opts)
   },
-  async openMail() {
-    await ipcRenderer.invoke(HOME_CHANNELS.openMail)
+  async openMail(module) {
+    await ipcRenderer.invoke(HOME_CHANNELS.openMail, module)
   },
   async newHtml(opts) {
     await ipcRenderer.invoke(HOME_CHANNELS.newHtml, opts)

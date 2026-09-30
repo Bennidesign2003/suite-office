@@ -263,7 +263,8 @@ export interface Invitation {
   replyStatus?: AttendeeStatus
   /** the whole iCalendar text, as received */
   ics: string
-  /** already in one of the user's calendars (same UID) */
+  /** set when the meeting (same UID) is already in one of the user's calendars:
+   * the id of that calendar */
   existingEventId?: string
 }
 
@@ -276,6 +277,8 @@ export interface InvitationResponse {
   calendarId?: string
   /** also mail the organizer (iTIP REPLY); true by default */
   notifyOrganizer?: boolean
+  /** UI language, for the wording of the reply mail */
+  lang?: string
 }
 
 export interface PimChange {
