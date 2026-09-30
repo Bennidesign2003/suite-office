@@ -385,7 +385,7 @@ function bool(v: unknown): boolean | null {
 /** minutes after midnight for "15:30", "15 Uhr", "3pm", "T15:30", 15, 15.3 … */
 function clock(v: unknown, allowMidnightEnd = false): number | null {
   let h: number
-  let m = 0
+  let m: number
   if (typeof v === 'number') {
     if (!Number.isFinite(v) || v < 0) return null
     const [whole = '', frac = ''] = String(v).split('.')
@@ -593,7 +593,7 @@ function attendeesField(v: unknown): Attendee[] {
     if (seen.has(email)) continue
     seen.add(email)
     if (!name && typeof item === 'string') {
-      name = text(item.slice(0, found.index).replace(/[<(\["]+\s*$/, ''), 120)
+      name = text(item.slice(0, found.index).replace(/[<(["]+\s*$/, ''), 120)
     }
     out.push({ email, status: 'needs-action', ...(name ? { name } : {}) })
     if (out.length >= 50) break

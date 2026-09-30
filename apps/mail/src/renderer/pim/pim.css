@@ -1,0 +1,184 @@
+/* The "add source" dialog shared by calendar and contacts. Chrome colors come
+ * from the design tokens (packages/ui/src/tokens.css) and the mail module's
+ * styles.css; nothing here defines a raw color. */
+
+.pim-source-dialog {
+  width: min(560px, calc(100vw - 32px));
+}
+
+.pim-hint {
+  margin: 0 0 14px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.pim-hint strong {
+  color: var(--text);
+}
+
+.pim-kinds {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.pim-kind {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-8, 8px);
+  background: var(--surface);
+  cursor: pointer;
+}
+
+.pim-kind:hover {
+  border-color: var(--border-hover);
+  background: var(--hover);
+}
+
+.pim-kind.selected {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.pim-kind input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.pim-kind:has(input:focus-visible) {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.pim-kind-name {
+  font-weight: 600;
+}
+
+.pim-kind-hint {
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.pim-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 10px;
+  min-width: 0;
+}
+
+.pim-field > span {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.pim-source-dialog input:not([type='checkbox']):not([type='radio']),
+.pim-source-dialog select {
+  min-width: 0;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-6, 6px);
+  background: var(--surface);
+}
+
+.pim-source-dialog input:not([type='checkbox']):not([type='radio']):focus,
+.pim-source-dialog select:focus {
+  outline: 0;
+  border-color: var(--accent);
+}
+
+.pim-source-dialog select:disabled {
+  opacity: 0.55;
+}
+
+.pim-login {
+  margin: 0 0 10px;
+  padding: 10px 12px 4px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-8, 8px);
+}
+
+.pim-login legend {
+  padding: 0 4px;
+  font-weight: 600;
+}
+
+.pim-radio-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  margin-bottom: 8px;
+}
+
+.pim-radio-row select {
+  flex: 1;
+  min-width: 180px;
+}
+
+.pim-radio,
+.pim-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.pim-login > .pim-radio {
+  margin-bottom: 8px;
+}
+
+.pim-check {
+  margin-bottom: 10px;
+}
+
+.pim-cred {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 10px;
+}
+
+.pim-note,
+.pim-privacy {
+  margin: 0 0 10px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.pim-guess {
+  padding: 8px 10px;
+  border-radius: var(--radius-6, 6px);
+  background: var(--surface-subtle);
+  color: var(--text);
+}
+
+.pim-status {
+  margin: 0 0 10px;
+  white-space: pre-wrap;
+}
+
+.pim-status-busy {
+  color: var(--text-secondary);
+}
+
+.pim-status-ok {
+  color: var(--success);
+}
+
+.pim-status-error {
+  color: var(--danger);
+}
+
+@media (max-width: 560px) {
+  .pim-cred {
+    grid-template-columns: 1fr;
+  }
+}

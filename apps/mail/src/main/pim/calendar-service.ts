@@ -335,7 +335,7 @@ export function diffObjects(
 
 /** the file name a new event gets on a CalDAV server */
 export function objectFilename(uid: string): string {
-  const safe = uid.length <= 200 && !/[\u0000-\u001f]/.test(uid)
+  const safe = uid.length <= 200 && ![...uid].some((c) => c.charCodeAt(0) < 0x20)
   return `${safe ? encodeURIComponent(uid) : createHash('sha1').update(uid).digest('hex')}.ics`
 }
 
@@ -1697,6 +1697,7 @@ export class CalendarService {
         } catch (err) {
           throw new Error(
             `Der Termin wurde gespeichert, aber die Einladung konnte nicht gesendet werden: ${err instanceof Error ? err.message : String(err)}`,
+            { cause: err },
           )
         }
       }
@@ -1818,6 +1819,7 @@ export class CalendarService {
       } catch (err) {
         throw new Error(
           `Der Termin wurde gelöscht, aber die Absage konnte nicht gesendet werden: ${err instanceof Error ? err.message : String(err)}`,
+          { cause: err },
         )
       }
     }

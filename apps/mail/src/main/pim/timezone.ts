@@ -52,7 +52,7 @@ const validZones = new Map<string, boolean>()
 function isIanaZone(zone: string): boolean {
   const known = validZones.get(zone)
   if (known !== undefined) return known
-  let ok = false
+  let ok: boolean
   try {
     new Intl.DateTimeFormat('en-US', { timeZone: zone })
     ok = true

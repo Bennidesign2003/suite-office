@@ -148,7 +148,10 @@ const MIME_BY_TYPE: Record<string, string> = {
 
 /** Outlook folds quoted-printable with a trailing "=" instead of a leading space */
 function prepare(text: string): string {
-  const lines = text.replace(/^﻿/, '').replace(/\r\n?/g, '\n').split('\n')
+  const lines = text
+    .replace(/^\uFEFF/, '')
+    .replace(/\r\n?/g, '\n')
+    .split('\n')
   const out: string[] = []
   for (let i = 0; i < lines.length; i++) {
     let line = lines[i]!
@@ -643,7 +646,7 @@ function quoteParam(value: string): string {
 
 /** fold, with a fast path for the long ASCII lines photos make */
 function foldLine(line: string): string {
-  if (!/^[\x00-\x7f]*$/.test(line)) return fold(line)
+  if (![...line].every((c) => c.charCodeAt(0) < 0x80)) return fold(line)
   if (line.length <= 75) return line
   const chunks = [line.slice(0, 75)]
   for (let i = 75; i < line.length; i += 74) chunks.push(line.slice(i, i + 74))
