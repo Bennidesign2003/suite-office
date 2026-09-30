@@ -4,7 +4,7 @@
  * to avoid renderer CORS), search tools, and the slides-only ai:* channels
  * (image generation, media analysis, style templates).
  */
-import { app, ipcMain, nativeImage, net } from 'electron'
+import { app, ipcMain, nativeImage, net, webContents } from 'electron'
 import {
   appendFileSync,
   existsSync,
@@ -24,6 +24,8 @@ import {
   fetchOllamaCatalog,
   maxOutputTokensOf,
   resolveAiSettings,
+  AI_SETTINGS_CHANGED_CHANNEL,
+  effectiveAiSettings,
   setAiUserAgent,
   setRescueFetch,
   streamForProvider,
@@ -95,10 +97,13 @@ export function registerAiIpc(): void {
   setRescueFetch((url, init) => net.fetch(url, init))
   setAiUserAgent(`GenOffice/${app.getVersion()}`)
 
-  ipcMain.handle('ai:get-settings', (): AiSettings => {
-    const stored = readJson<Partial<AiSettings> & LegacyAiSettings>(AI_SETTINGS_PATH(), {})
-    return resolveAiSettings(stored, defaultAiSettings())
-  })
+  const storedAiSettings = (): AiSettings =>
+    resolveAiSettings(
+      readJson<Partial<AiSettings> & LegacyAiSettings>(AI_SETTINGS_PATH(), {}),
+      defaultAiSettings(),
+    )
+
+  ipcMain.handle('ai:get-settings', (): AiSettings => storedAiSettings())
 
   // Which models the local daemon actually serves. The AI surfaces call this
   // to tell "no model picked yet" apart from "the daemon is not running",
@@ -113,6 +118,11 @@ export function registerAiIpc(): void {
 
   ipcMain.handle('ai:set-settings', (_event, settings: AiSettings) => {
     writeJson(AI_SETTINGS_PATH(), settings)
+    // windows loaded their copy at startup: hand them the new one
+    const saved = storedAiSettings()
+    for (const wc of webContents.getAllWebContents()) {
+      if (!wc.isDestroyed()) wc.send(AI_SETTINGS_CHANGED_CHANNEL, saved)
+    }
   })
 
   ipcMain.handle('ai:log-run-failure', (_event, entry: AiRunFailure) => {
@@ -120,7 +130,8 @@ export function registerAiIpc(): void {
   })
 
   ipcMain.handle('ai:stream', async (event, request: AiStreamRequest) => {
-    const { requestId, settings, system, messages } = request
+    const { requestId, system, messages } = request
+    const settings = effectiveAiSettings(request.settings, storedAiSettings)
     const tools = request.tools ?? []
     const maxTokens = request.maxTokens ?? maxOutputTokensOf(settings)
     const provider = settings.provider

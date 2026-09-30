@@ -1184,6 +1184,8 @@ export function App() {
 
   useEffect(() => {
     void window.slidesApi.getAiSettings().then(setAiSettings)
+    // a model picked in Settings after this tab opened
+    return window.slidesApi.onAiSettingsChanged?.(setAiSettings)
   }, [])
 
   // Recent files for the start screen
