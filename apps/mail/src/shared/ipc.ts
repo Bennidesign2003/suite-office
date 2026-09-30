@@ -1,4 +1,5 @@
 import type { AiSettings, AiStreamChunk, AiStreamRequest } from '@genoffice/ai-provider'
+import type { Invitation } from './pim'
 
 /** IPC surface of the mail module (shell tab `mail`). */
 export const MAIL_CHANNELS = {
@@ -106,6 +107,8 @@ export interface MailMessage {
   attachments: MailAttachmentInfo[]
   /** the HTML references http(s) images that stay blocked until the user allows them */
   hasRemoteContent: boolean
+  /** a meeting invitation (or answer, or cancellation) carried as text/calendar */
+  invitation?: Invitation
 }
 
 export interface OutgoingMail {
