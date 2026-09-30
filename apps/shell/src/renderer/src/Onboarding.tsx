@@ -39,13 +39,6 @@ const SLIDES: readonly Slide[] = [
   },
 ]
 
-/** render `**emphasized**` segments of a localized string as <strong> */
-function renderEmphasis(text: string) {
-  return text
-    .split('**')
-    .map((part, i) => (i % 2 === 1 ? <strong key={part}>{part}</strong> : part))
-}
-
 /* exact vectors from the design spec:
  * 60px canvas, 4px strokes — same visual mass as the 60px app icon */
 function SlideArt({ kind }: { kind: Slide['art'] }) {

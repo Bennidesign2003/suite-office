@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { DragEvent as ReactDragEvent, ReactElement } from 'react'
-import logoLockup from './assets/genoffice-logo.svg'
+import logoLockup from './assets/suite-logo.svg'
 import iconDocx from './assets/file-docx.svg'
 import iconXlsx from './assets/file-xlsx.svg'
 import iconPptx from './assets/file-pptx.svg'
@@ -70,6 +70,24 @@ const DRAG_EXPAND_DELAY_MS = 600
 const TREE_STATE_KEY = 'home.folderTree'
 
 function FileBadge({ ext, size }: { ext: string; size: number }) {
+  if (ext === 'mail') {
+    return (
+      <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden="true">
+        <rect width="32" height="32" rx="7.5" fill="#0F6CBD" />
+        <rect
+          x="7"
+          y="9.5"
+          width="18"
+          height="13"
+          rx="2"
+          fill="none"
+          stroke="#fff"
+          strokeWidth="2"
+        />
+        <path d="M8 11l8 6 8-6" fill="none" stroke="#fff" strokeWidth="2" strokeLinejoin="round" />
+      </svg>
+    )
+  }
   const icon = FILE_ICONS[ext]
   if (icon) {
     return <img src={icon} width={size} height={size} alt="" aria-hidden="true" />
@@ -645,7 +663,6 @@ function ConflictPrompt({ names, onChoose }: ConflictPromptProps) {
 // Clicking it opens the settings modal directly (SettingsModal.tsx), which hosts
 // login/logout plus preferences (language, theme, save location, update channel).
 
-const LOGIN_POLL_MS = 2500
 /**
  * Bottom-of-sidebar entry: the state of the local Ollama daemon, and the way
  * into Settings. It replaces upstream's account button — there is no account
@@ -1443,6 +1460,12 @@ export function Home() {
       title: t('newPdf'),
       sub: '.pdf',
       action: () => window.aiOffice.newPdf(newFileOpts),
+    },
+    {
+      ext: 'mail',
+      title: t('newMail'),
+      sub: 'IMAP · SMTP',
+      action: () => window.aiOffice.openMail(),
     },
   ]
 
@@ -2262,7 +2285,7 @@ export function Home() {
     <div className="home">
       <aside className="sidebar">
         <div className="sidebar-logo">
-          <img className="logo-lockup" src={logoLockup} alt="GenOffice" />
+          <img className="logo-lockup" src={logoLockup} alt="Suite Office" />
         </div>
         <nav className="sidebar-nav">
           <button

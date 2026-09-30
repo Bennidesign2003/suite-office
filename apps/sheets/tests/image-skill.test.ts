@@ -56,34 +56,14 @@ describe('image skill: image_search', () => {
   })
 })
 
-describe('image skill: generate_image', () => {
-  it('rejects an empty prompt', async () => {
-    stubDesktopApi({})
-    const result = await createImageSkill().executeTool(call('generate_image', {}))
+describe('image skill: no generation', () => {
+  // Ollama serves no image output, so the skill offers search only
+  it('does not offer generate_image', async () => {
+    stubDesktopApi({ generateImage: vi.fn() })
+    const skill = createImageSkill()
+    const result = await skill.executeTool(call('generate_image', { prompt: 'minimal logo' }))
     expect(result.isError).toBe(true)
-  })
-
-  it('propagates generation errors (e.g. not logged in)', async () => {
-    stubDesktopApi({
-      generateImage: vi.fn().mockResolvedValue({ error: 'Genspark account is not logged in' }),
-    })
-    const result = await createImageSkill().executeTool(
-      call('generate_image', { prompt: 'a chart mascot' }),
-    )
-    expect(result.isError).toBe(true)
-    expect(result.output).toContain('not logged in')
-  })
-
-  it('returns the generated URL with insertion guidance', async () => {
-    const generateImage = vi.fn().mockResolvedValue({ url: 'https://cdn.example.com/gen/1.png' })
-    stubDesktopApi({ generateImage })
-    const result = await createImageSkill().executeTool(
-      call('generate_image', { prompt: 'minimal logo', aspectRatio: '1:1' }),
-    )
-    expect(generateImage).toHaveBeenCalledWith({ prompt: 'minimal logo', aspectRatio: '1:1' })
-    expect(result.isError).toBeUndefined()
-    expect(result.output).toContain('https://cdn.example.com/gen/1.png')
-    expect(result.output).toContain('add_image')
+    expect(result.output).toContain('Unknown tool')
   })
 })
 

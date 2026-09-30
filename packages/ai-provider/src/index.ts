@@ -93,3 +93,4 @@ export {
   createStreamWatchdog,
 } from './watchdog'
 export type { StreamWatchdog } from './watchdog'
+export { installProxyDispatcher, noProxyList } from './proxy-dispatcher'

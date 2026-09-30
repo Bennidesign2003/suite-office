@@ -45,7 +45,10 @@ function PdfIcon() {
   )
 }
 
-const IS_MAC = navigator.platform.toLowerCase().includes('mac')
+// the browser build (`npm run web`) has no macOS menu bar or traffic lights
+const IS_MAC =
+  document.documentElement.dataset.suiteWeb !== '1' &&
+  navigator.platform.toLowerCase().includes('mac')
 
 function HomeIcon() {
   return (
@@ -116,6 +119,32 @@ function HtmlIcon() {
   )
 }
 
+function MailIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 240 240" aria-hidden="true">
+      <rect width="240" height="240" rx="48" fill="#0F6CBD" />
+      <rect
+        x="44"
+        y="68"
+        width="152"
+        height="104"
+        rx="14"
+        stroke="#fff"
+        strokeWidth="16"
+        fill="none"
+      />
+      <path
+        d="M52 80L120 132L188 80"
+        stroke="#fff"
+        strokeWidth="16"
+        fill="none"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  )
+}
+
 const KIND_ICON: Record<TabSummary['kind'], ReactElement> = {
   home: <HomeIcon />,
   docs: <DocIcon />,
@@ -124,6 +153,7 @@ const KIND_ICON: Record<TabSummary['kind'], ReactElement> = {
   pdf: <PdfIcon />,
   markdown: <MarkdownIcon />,
   html: <HtmlIcon />,
+  mail: <MailIcon />,
 }
 
 export function TabBar() {

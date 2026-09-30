@@ -14,7 +14,10 @@ installScreenTips()
 
 // macOS shell window is created with vibrancy; a transparent body lets the
 // editor views' translucent regions (e.g. slides thumbnail pane) show it
-const IS_MAC = navigator.platform.toLowerCase().includes('mac')
+// in the browser (`npm run web`) there is no native title bar or menu bar:
+// lay the strip out like Windows/Linux, with the in-strip app menu button
+const IS_WEB = document.documentElement.dataset.suiteWeb === '1'
+const IS_MAC = !IS_WEB && navigator.platform.toLowerCase().includes('mac')
 if (IS_MAC) document.body.classList.add('vib')
 // non-mac: the tab strip doubles as the title bar (caption buttons overlay it)
 document.body.classList.add(IS_MAC ? 'mac' : 'overlay-title-bar')

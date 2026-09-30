@@ -1,0 +1,29 @@
+{
+  "name": "@genoffice/web",
+  "version": "0.1.0",
+  "license": "Apache-2.0",
+  "private": true,
+  "description": "Suite im Browser: runs the shell's main process under Node and serves every editor to the browser",
+  "main": "dist/server.cjs",
+  "scripts": {
+    "build": "node build.mjs",
+    "start": "node dist/server.cjs",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "image-size": "^1.2.1",
+    "jpeg-js": "^0.4.4",
+    "playwright-core": "^1.61.1",
+    "pngjs": "^7.0.0",
+    "ws": "^8.21.1"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "@types/pngjs": "^6.0.5",
+    "@types/ws": "^8.5.13",
+    "esbuild": "^0.25.0",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.11"
+  }
+}

@@ -1,4 +1,5 @@
 import { join } from 'node:path'
+import { installProxyDispatcher } from '@genoffice/ai-provider'
 import { setSearchProxyUrl } from '@genoffice/ai-search'
 import { genofficeUserDataDir } from './gui'
 
@@ -40,6 +41,5 @@ export async function prepareCloud(env: NodeJS.ProcessEnv): Promise<void> {
   const proxy = proxyUrlFromEnv(env)
   if (!proxy) return
   setSearchProxyUrl(proxy)
-  const { ProxyAgent, setGlobalDispatcher } = await import('undici')
-  setGlobalDispatcher(new ProxyAgent(proxy))
+  await installProxyDispatcher(proxy, { env })
 }

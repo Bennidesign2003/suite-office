@@ -14,7 +14,7 @@ import {
   qcSlidePage,
   settingsSupportVision,
 } from '../src/renderer/ai/slide-qc'
-import { defaultAiSettings, type AiProviderId } from '@genoffice/ai-provider'
+import { defaultAiSettings } from '@genoffice/ai-provider'
 import type { DeckAccess } from '../src/renderer/ai/slides-skill'
 
 const access: DeckAccess = {

@@ -25,7 +25,6 @@ import type {
 import { useI18n } from './locale'
 import type { StringKey, TFunc } from './locale'
 import type { UiTheme } from '../../shared/home-api'
-import { ProviderLogo } from './provider-logos'
 import { IntegrationsPane, skillUpdateDue } from './IntegrationsPane'
 import './settings.css'
 
@@ -1022,8 +1021,8 @@ export function SettingsModal({
                   label={t('setGithub')}
                   value={
                     githubStars === null
-                      ? 'github.com/genspark-ai/genoffice'
-                      : `github.com/genspark-ai/genoffice · ★ ${formatStars(githubStars)}`
+                      ? 'github.com/Bennidesign2003/suite-office'
+                      : `github.com/Bennidesign2003/suite-office · ★ ${formatStars(githubStars)}`
                   }
                   action={
                     <button

@@ -3,12 +3,11 @@ import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { run, tempDir } from './helpers'
 
-// hasGskAuth reads process.env, not the command context: isolate the login state per test
+// the audit log lives under GENOFFICE_AUTH_DIR (read from process.env): keep it out of $HOME
 const saved: Record<string, string | undefined> = {}
 beforeEach(() => {
-  for (const k of ['GENOFFICE_AUTH_DIR', 'AI_SEARCH_DISABLE_GSK']) saved[k] = process.env[k]
+  for (const k of ['GENOFFICE_AUTH_DIR']) saved[k] = process.env[k]
   process.env.GENOFFICE_AUTH_DIR = join(tempDir(), 'no-auth')
-  process.env.AI_SEARCH_DISABLE_GSK = '1'
 })
 afterEach(() => {
   for (const [k, v] of Object.entries(saved)) {
@@ -20,12 +19,12 @@ afterEach(() => {
 // a real settings file always carries the chat provider block; without it every section resets to defaults
 function settingsFile(dir: string, settings: Record<string, unknown>): string {
   const path = join(dir, 'ai-settings.json')
-  writeFileSync(path, JSON.stringify({ provider: 'anthropic', providers: {}, ...settings }))
+  writeFileSync(path, JSON.stringify({ provider: 'ollama', providers: {}, ...settings }))
   return path
 }
 
 describe('genoffice capabilities', () => {
-  it('reports nothing configured when signed out with default settings', async () => {
+  it('reports no model features with default settings, but keyless search', async () => {
     const dir = tempDir()
     const r = await run(['capabilities', '--json'], {
       env: {
@@ -36,13 +35,16 @@ describe('genoffice capabilities', () => {
     })
     expect(r.code).toBe(0)
     const d = r.json().detail
-    expect(d.search.available).toBe(false)
-    expect(d.image_search.available).toBe(false)
-    expect(d.image_generation.available).toBe(false)
+    expect(d.chat.available).toBe(false)
     expect(d.media_analysis.available).toBe(false)
+    // Ollama serves no image output, so generation is never available
+    expect(d.image_generation.available).toBe(false)
+    // the keyless fallbacks always answer
+    expect(d.search).toEqual({ available: true, via: 'free' })
+    expect(d.image_search).toEqual({ available: true, via: 'free' })
   })
 
-  it('counts a Serper key as search + image search and a BYOK image model as generation', async () => {
+  it('counts a Serper key as search + image search, never as image generation', async () => {
     const dir = tempDir()
     mkdirSync(join(dir, 'bin'))
     const settings = settingsFile(dir, {
@@ -66,13 +68,13 @@ describe('genoffice capabilities', () => {
     const d = r.json().detail
     expect(d.search).toEqual({ available: true, via: 'serper' })
     expect(d.image_search).toEqual({ available: true, via: 'serper' })
-    expect(d.image_generation).toEqual({ available: true, via: 'openai' })
+    expect(d.image_generation.available).toBe(false)
     expect(d.media_analysis.available).toBe(false)
     expect(d.app.available).toBe(true)
-    expect(r.json().summary).toContain('image_generation')
+    expect(r.json().summary).not.toContain('image_generation')
   })
 
-  it('Tavily gives web search but no image search', async () => {
+  it('Tavily gives web search; image search falls back to the keyless source', async () => {
     const dir = tempDir()
     const settings = settingsFile(dir, {
       search: {
@@ -85,6 +87,6 @@ describe('genoffice capabilities', () => {
     })
     const d = r.json().detail
     expect(d.search).toEqual({ available: true, via: 'tavily' })
-    expect(d.image_search.available).toBe(false)
+    expect(d.image_search).toEqual({ available: true, via: 'free' })
   })
 })
