@@ -1,6 +1,7 @@
 // `npm run web`: build whatever is missing, then start Suite in the browser.
 // A full `npm run build:all` runs only when an editor module has no build
 // output yet; the web bridge itself is rebuilt every time (it takes a second).
+// Rust is optional: without it everything but Sheets' workbook engine builds.
 import { spawnSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
@@ -29,13 +30,30 @@ function run(cmd, args) {
   if (result.status !== 0) process.exit(result.status ?? 1)
 }
 
-if (force || missing.length > 0) {
+const fullBuild = force || missing.length > 0
+if (fullBuild) {
   console.log(
     force
       ? 'Suite wird neu gebaut …'
       : `Suite ist noch nicht (vollständig) gebaut – baue jetzt (${missing.length} Teile fehlen) …`,
   )
   run(npm, ['run', 'build:all'])
+}
+
+// Sheets' xlsx engine is Rust and optional for the rest of Suite (see
+// apps/sheets/scripts/native-build.mjs). When Rust arrives after the first
+// build, build just the engine instead of asking for a full rebuild.
+const { findCargo, SIDECAR_BINARY } = await import('../sheets/scripts/native-build.mjs')
+if (!fullBuild && !existsSync(SIDECAR_BINARY)) {
+  if (findCargo()) {
+    console.log('Rust gefunden – baue jetzt das xlsx-Modul von Sheets …')
+    run(npm, ['run', 'native:build', '-w', '@genoffice/sheets'])
+  } else {
+    console.warn(
+      'Hinweis: Sheets kann ohne sein xlsx-Modul keine Arbeitsmappen öffnen. Dafür Rust ' +
+        'installieren (https://rustup.rs) und `npm run web` neu starten – der Rest von Suite läuft auch so.',
+    )
+  }
 }
 run(process.execPath, [join(here, 'build.mjs')])
 

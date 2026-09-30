@@ -209,6 +209,11 @@ const tMain = createI18n({
     csvKeepFormatMsg: '继续以 CSV 格式保存吗?',
     csvKeepFormatDetail:
       'CSV 只保留单张工作表的纯文本值——公式、格式和其他工作表不会存入 .csv 文件。',
+    sidecarMissing:
+      '缺少表格引擎(xlsx-sidecar)——请安装 Rust(https://rustup.rs)后重新运行 npm run web。',
+    sidecarMissingTitle: '缺少表格引擎',
+    sidecarMissingDetail:
+      '当前构建未包含用 Rust 编译的表格引擎,因此 Sheets 无法打开或新建工作簿。请安装 Rust(https://rustup.rs),然后重新运行 npm run web——引擎会自动构建。Suite 的其他功能不受影响。',
   },
   en: {
     filterSpreadsheets: 'Spreadsheets',
@@ -266,6 +271,11 @@ const tMain = createI18n({
     csvKeepFormatMsg: 'Keep saving in CSV format?',
     csvKeepFormatDetail:
       'CSV keeps plain values of a single sheet only — formulas, formatting, and any additional sheets are not saved to the .csv file.',
+    sidecarMissing:
+      "Sheets' workbook engine (xlsx-sidecar) is missing — install Rust (https://rustup.rs) and run npm run web again.",
+    sidecarMissingTitle: 'Workbook engine missing',
+    sidecarMissingDetail:
+      'This build of Suite was made without Rust, so Sheets cannot open or create workbooks. Install Rust (https://rustup.rs), then run npm run web again — the engine is built automatically. Everything else in Suite works as usual.',
   },
   ja: {
     filterSpreadsheets: 'スプレッドシート',
@@ -326,6 +336,11 @@ const tMain = createI18n({
     csvKeepFormatMsg: 'CSV 形式のまま保存しますか?',
     csvKeepFormatDetail:
       'CSV は 1 枚のシートの値のみを保持します。数式、書式、追加のシートは .csv ファイルには保存されません。',
+    sidecarMissing:
+      'Sheets のブック エンジン (xlsx-sidecar) がありません — Rust (https://rustup.rs) をインストールして npm run web を再実行してください。',
+    sidecarMissingTitle: 'ブック エンジンがありません',
+    sidecarMissingDetail:
+      'この Suite は Rust なしでビルドされたため、Sheets でブックを開いたり作成したりできません。Rust (https://rustup.rs) をインストールしてから npm run web を再実行すると、エンジンが自動的にビルドされます。Suite のその他の機能は通常どおり使えます。',
   },
   ko: {
     filterSpreadsheets: '스프레드시트',
@@ -386,6 +401,11 @@ const tMain = createI18n({
     csvKeepFormatMsg: 'CSV 형식으로 계속 저장하시겠습니까?',
     csvKeepFormatDetail:
       'CSV는 시트 하나의 값만 유지합니다 — 수식, 서식, 추가 시트는 .csv 파일에 저장되지 않습니다.',
+    sidecarMissing:
+      'Sheets 통합 문서 엔진(xlsx-sidecar)이 없습니다 — Rust(https://rustup.rs)를 설치하고 npm run web을 다시 실행하세요.',
+    sidecarMissingTitle: '통합 문서 엔진 없음',
+    sidecarMissingDetail:
+      '이 Suite는 Rust 없이 빌드되어 Sheets에서 통합 문서를 열거나 만들 수 없습니다. Rust(https://rustup.rs)를 설치한 뒤 npm run web을 다시 실행하면 엔진이 자동으로 빌드됩니다. Suite의 다른 기능은 그대로 사용할 수 있습니다.',
   },
   fr: {
     filterSpreadsheets: 'Feuilles de calcul',
@@ -447,6 +467,11 @@ const tMain = createI18n({
     csvKeepFormatMsg: 'Continuer à enregistrer au format CSV ?',
     csvKeepFormatDetail:
       "Le CSV ne conserve que les valeurs d'une seule feuille — les formules, la mise en forme et les feuilles supplémentaires ne sont pas enregistrées dans le fichier .csv.",
+    sidecarMissing:
+      'Le moteur de classeurs de Sheets (xlsx-sidecar) est absent — installez Rust (https://rustup.rs) puis relancez npm run web.',
+    sidecarMissingTitle: 'Moteur de classeurs absent',
+    sidecarMissingDetail:
+      'Cette version de Suite a été compilée sans Rust : Sheets ne peut donc ni ouvrir ni créer de classeurs. Installez Rust (https://rustup.rs), puis relancez npm run web — le moteur est compilé automatiquement. Le reste de Suite fonctionne normalement.',
   },
   de: {
     filterSpreadsheets: 'Tabellenkalkulationen',
@@ -507,6 +532,11 @@ const tMain = createI18n({
     csvKeepFormatMsg: 'Weiter im CSV-Format speichern?',
     csvKeepFormatDetail:
       'CSV speichert nur die Werte eines einzelnen Blatts – Formeln, Formatierungen und weitere Blätter werden nicht in der .csv-Datei gespeichert.',
+    sidecarMissing:
+      'Das Tabellen-Modul von Sheets (xlsx-sidecar) fehlt – Rust installieren (https://rustup.rs) und npm run web neu starten.',
+    sidecarMissingTitle: 'Tabellen-Modul fehlt',
+    sidecarMissingDetail:
+      'Suite wurde ohne Rust gebaut, deshalb kann Sheets keine Arbeitsmappen öffnen oder anlegen. Rust installieren (https://rustup.rs) und danach npm run web neu starten – das Modul wird dann automatisch gebaut. Alles andere in Suite funktioniert wie gewohnt.',
   },
   es: {
     filterSpreadsheets: 'Hojas de cálculo',
@@ -567,6 +597,11 @@ const tMain = createI18n({
     csvKeepFormatMsg: '¿Seguir guardando en formato CSV?',
     csvKeepFormatDetail:
       'CSV solo conserva los valores de una única hoja: las fórmulas, el formato y las hojas adicionales no se guardan en el archivo .csv.',
+    sidecarMissing:
+      'Falta el motor de libros de Sheets (xlsx-sidecar): instala Rust (https://rustup.rs) y vuelve a ejecutar npm run web.',
+    sidecarMissingTitle: 'Falta el motor de libros',
+    sidecarMissingDetail:
+      'Esta compilación de Suite se hizo sin Rust, así que Sheets no puede abrir ni crear libros. Instala Rust (https://rustup.rs) y vuelve a ejecutar npm run web: el motor se compila automáticamente. El resto de Suite funciona con normalidad.',
   },
   th: {
     filterSpreadsheets: 'สเปรดชีต',
@@ -626,6 +661,11 @@ const tMain = createI18n({
     csvKeepFormatMsg: 'บันทึกเป็นรูปแบบ CSV ต่อไปหรือไม่',
     csvKeepFormatDetail:
       'CSV เก็บเฉพาะค่าของชีตเดียวเท่านั้น — สูตร การจัดรูปแบบ และชีตอื่น ๆ จะไม่ถูกบันทึกลงในไฟล์ .csv',
+    sidecarMissing:
+      'ไม่พบเอนจินเวิร์กบุ๊กของ Sheets (xlsx-sidecar) — ติดตั้ง Rust (https://rustup.rs) แล้วเรียก npm run web อีกครั้ง',
+    sidecarMissingTitle: 'ไม่พบเอนจินเวิร์กบุ๊ก',
+    sidecarMissingDetail:
+      'Suite ชุดนี้บิลด์โดยไม่มี Rust จึงทำให้ Sheets เปิดหรือสร้างเวิร์กบุ๊กไม่ได้ ติดตั้ง Rust (https://rustup.rs) แล้วเรียก npm run web อีกครั้ง เอนจินจะถูกบิลด์โดยอัตโนมัติ ส่วนอื่นของ Suite ใช้งานได้ตามปกติ',
   },
   id: {
     filterSpreadsheets: 'Lembar bentang',
@@ -684,6 +724,11 @@ const tMain = createI18n({
     csvKeepFormatMsg: 'Terus menyimpan dalam format CSV?',
     csvKeepFormatDetail:
       'CSV hanya menyimpan nilai dari satu lembar — rumus, pemformatan, dan lembar tambahan tidak disimpan ke file .csv.',
+    sidecarMissing:
+      'Mesin buku kerja Sheets (xlsx-sidecar) tidak ada — instal Rust (https://rustup.rs) lalu jalankan npm run web lagi.',
+    sidecarMissingTitle: 'Mesin buku kerja tidak ada',
+    sidecarMissingDetail:
+      'Suite ini dibangun tanpa Rust, sehingga Sheets tidak dapat membuka atau membuat buku kerja. Instal Rust (https://rustup.rs), lalu jalankan npm run web lagi — mesinnya akan dibangun otomatis. Bagian lain Suite tetap berfungsi seperti biasa.',
   },
   ru: {
     filterSpreadsheets: 'Электронные таблицы',
@@ -743,6 +788,11 @@ const tMain = createI18n({
     csvKeepFormatMsg: 'Продолжить сохранение в формате CSV?',
     csvKeepFormatDetail:
       'CSV сохраняет только значения одного листа — формулы, форматирование и дополнительные листы не сохраняются в файле .csv.',
+    sidecarMissing:
+      'Отсутствует движок книг Sheets (xlsx-sidecar) — установите Rust (https://rustup.rs) и снова запустите npm run web.',
+    sidecarMissingTitle: 'Движок книг отсутствует',
+    sidecarMissingDetail:
+      'Эта сборка Suite создана без Rust, поэтому Sheets не может открывать и создавать книги. Установите Rust (https://rustup.rs) и снова запустите npm run web — движок соберётся автоматически. Остальные части Suite работают как обычно.',
   },
   ar: {
     filterSpreadsheets: 'جداول البيانات',
@@ -799,6 +849,11 @@ const tMain = createI18n({
     csvKeepFormatMsg: 'هل تريد متابعة الحفظ بتنسيق CSV؟',
     csvKeepFormatDetail:
       'يحتفظ CSV بقيم ورقة واحدة فقط — لا تُحفظ الصيغ والتنسيق والأوراق الإضافية في ملف .csv.',
+    sidecarMissing:
+      'محرك المصنفات في Sheets (xlsx-sidecar) غير موجود — ثبّت Rust (https://rustup.rs) ثم شغّل npm run web مجددًا.',
+    sidecarMissingTitle: 'محرك المصنفات غير موجود',
+    sidecarMissingDetail:
+      'تم بناء Suite هذا بدون Rust، لذلك لا يمكن لـ Sheets فتح المصنفات أو إنشاؤها. ثبّت Rust (https://rustup.rs) ثم شغّل npm run web مجددًا — سيُبنى المحرك تلقائيًا. تعمل بقية أجزاء Suite كالمعتاد.',
   },
   pt: {
     filterSpreadsheets: 'Planilhas',
@@ -858,6 +913,11 @@ const tMain = createI18n({
     csvKeepFormatMsg: 'Continuar salvando no formato CSV?',
     csvKeepFormatDetail:
       'O CSV mantém apenas os valores de uma única planilha — fórmulas, formatação e planilhas adicionais não são salvas no arquivo .csv.',
+    sidecarMissing:
+      'O mecanismo de pastas de trabalho do Sheets (xlsx-sidecar) está ausente — instale o Rust (https://rustup.rs) e execute npm run web novamente.',
+    sidecarMissingTitle: 'Mecanismo de pastas de trabalho ausente',
+    sidecarMissingDetail:
+      'Esta versão do Suite foi compilada sem Rust, por isso o Sheets não consegue abrir nem criar pastas de trabalho. Instale o Rust (https://rustup.rs) e execute npm run web novamente — o mecanismo é compilado automaticamente. O restante do Suite funciona normalmente.',
   },
   it: {
     filterSpreadsheets: 'Fogli di calcolo',
@@ -918,6 +978,11 @@ const tMain = createI18n({
     csvKeepFormatMsg: 'Continuare a salvare in formato CSV?',
     csvKeepFormatDetail:
       'Il CSV conserva solo i valori di un singolo foglio: formule, formattazione e fogli aggiuntivi non vengono salvati nel file .csv.',
+    sidecarMissing:
+      'Manca il motore delle cartelle di lavoro di Sheets (xlsx-sidecar): installa Rust (https://rustup.rs) ed esegui di nuovo npm run web.',
+    sidecarMissingTitle: 'Motore delle cartelle di lavoro mancante',
+    sidecarMissingDetail:
+      'Questa build di Suite è stata creata senza Rust, quindi Sheets non può aprire né creare cartelle di lavoro. Installa Rust (https://rustup.rs) ed esegui di nuovo npm run web: il motore viene compilato automaticamente. Il resto di Suite funziona normalmente.',
   },
   pl: {
     filterSpreadsheets: 'Arkusze kalkulacyjne',
@@ -977,6 +1042,11 @@ const tMain = createI18n({
     csvKeepFormatMsg: 'Kontynuować zapisywanie w formacie CSV?',
     csvKeepFormatDetail:
       'CSV zachowuje tylko wartości jednego arkusza — formuły, formatowanie i dodatkowe arkusze nie są zapisywane w pliku .csv.',
+    sidecarMissing:
+      'Brak silnika skoroszytów Sheets (xlsx-sidecar) — zainstaluj Rust (https://rustup.rs) i ponownie uruchom npm run web.',
+    sidecarMissingTitle: 'Brak silnika skoroszytów',
+    sidecarMissingDetail:
+      'Ta kompilacja Suite powstała bez Rusta, dlatego Sheets nie może otwierać ani tworzyć skoroszytów. Zainstaluj Rust (https://rustup.rs) i ponownie uruchom npm run web — silnik zostanie zbudowany automatycznie. Pozostałe części Suite działają normalnie.',
   },
   cs: {
     filterSpreadsheets: 'Tabulky',
@@ -1036,6 +1106,11 @@ const tMain = createI18n({
     csvKeepFormatMsg: 'Pokračovat v ukládání ve formátu CSV?',
     csvKeepFormatDetail:
       'CSV zachovává pouze hodnoty jednoho listu — vzorce, formátování a další listy se do souboru .csv neuloží.',
+    sidecarMissing:
+      'Chybí modul sešitů aplikace Sheets (xlsx-sidecar) — nainstalujte Rust (https://rustup.rs) a znovu spusťte npm run web.',
+    sidecarMissingTitle: 'Chybí modul sešitů',
+    sidecarMissingDetail:
+      'Tato sestava Suite byla vytvořena bez Rustu, proto Sheets nemůže otevírat ani vytvářet sešity. Nainstalujte Rust (https://rustup.rs) a znovu spusťte npm run web — modul se sestaví automaticky. Zbytek Suite funguje jako obvykle.',
   },
   nl: {
     filterSpreadsheets: 'Spreadsheets',
@@ -1096,6 +1171,11 @@ const tMain = createI18n({
     csvKeepFormatMsg: 'Doorgaan met opslaan in CSV-indeling?',
     csvKeepFormatDetail:
       'CSV bewaart alleen de waarden van één blad — formules, opmaak en extra bladen worden niet in het .csv-bestand opgeslagen.',
+    sidecarMissing:
+      'De werkmapengine van Sheets (xlsx-sidecar) ontbreekt — installeer Rust (https://rustup.rs) en voer npm run web opnieuw uit.',
+    sidecarMissingTitle: 'Werkmapengine ontbreekt',
+    sidecarMissingDetail:
+      'Deze versie van Suite is zonder Rust gebouwd, waardoor Sheets geen werkmappen kan openen of maken. Installeer Rust (https://rustup.rs) en voer daarna npm run web opnieuw uit — de engine wordt automatisch gebouwd. De rest van Suite werkt gewoon.',
   },
   ms: {
     filterSpreadsheets: 'Hamparan',
@@ -1155,6 +1235,11 @@ const tMain = createI18n({
     csvKeepFormatMsg: 'Terus simpan dalam format CSV?',
     csvKeepFormatDetail:
       'CSV hanya menyimpan nilai satu helaian — formula, pemformatan dan helaian tambahan tidak disimpan ke fail .csv.',
+    sidecarMissing:
+      'Enjin buku kerja Sheets (xlsx-sidecar) tiada — pasang Rust (https://rustup.rs) dan jalankan npm run web semula.',
+    sidecarMissingTitle: 'Enjin buku kerja tiada',
+    sidecarMissingDetail:
+      'Binaan Suite ini dibuat tanpa Rust, jadi Sheets tidak dapat membuka atau mencipta buku kerja. Pasang Rust (https://rustup.rs), kemudian jalankan npm run web semula — enjin akan dibina secara automatik. Bahagian lain Suite berfungsi seperti biasa.',
   },
   he: {
     filterSpreadsheets: 'גיליונות אלקטרוניים',
@@ -1211,6 +1296,11 @@ const tMain = createI18n({
     csvKeepFormatMsg: 'להמשיך לשמור בתבנית CSV?',
     csvKeepFormatDetail:
       'CSV שומר רק את הערכים של גיליון אחד — נוסחאות, עיצוב וגיליונות נוספים אינם נשמרים בקובץ ה-.csv.',
+    sidecarMissing:
+      'מנוע חוברות העבודה של Sheets (xlsx-sidecar) חסר — התקינו Rust (https://rustup.rs) והריצו שוב npm run web.',
+    sidecarMissingTitle: 'מנוע חוברות העבודה חסר',
+    sidecarMissingDetail:
+      'גרסה זו של Suite נבנתה ללא Rust, ולכן Sheets לא יכול לפתוח או ליצור חוברות עבודה. התקינו Rust (https://rustup.rs) והריצו שוב npm run web — המנוע ייבנה אוטומטית. שאר חלקי Suite פועלים כרגיל.',
   },
   hi: {
     filterSpreadsheets: 'स्प्रेडशीट',
@@ -1270,6 +1360,11 @@ const tMain = createI18n({
     csvKeepFormatMsg: 'CSV प्रारूप में सहेजना जारी रखें?',
     csvKeepFormatDetail:
       'CSV केवल एक शीट के मान रखता है — सूत्र, स्वरूपण और अतिरिक्त शीट .csv फ़ाइल में सहेजे नहीं जाते।',
+    sidecarMissing:
+      'Sheets का वर्कबुक इंजन (xlsx-sidecar) मौजूद नहीं है — Rust (https://rustup.rs) इंस्टॉल करें और npm run web फिर से चलाएँ।',
+    sidecarMissingTitle: 'वर्कबुक इंजन मौजूद नहीं',
+    sidecarMissingDetail:
+      'Suite का यह बिल्ड Rust के बिना बनाया गया है, इसलिए Sheets वर्कबुक खोल या बना नहीं सकता। Rust (https://rustup.rs) इंस्टॉल करें, फिर npm run web दोबारा चलाएँ — इंजन अपने-आप बन जाएगा। Suite के बाकी हिस्से सामान्य रूप से काम करते हैं।',
   },
   'zh-TW': {
     filterSpreadsheets: '電子試算表',
@@ -1324,6 +1419,11 @@ const tMain = createI18n({
     csvActiveSheetOnlyNotice: 'CSV 檔案只包含一張工作表——只會匯出目前工作表「{name}」。',
     csvKeepFormatMsg: '要繼續以 CSV 格式儲存嗎?',
     csvKeepFormatDetail: 'CSV 只保留單張工作表的純值——公式、格式和其他工作表不會存入 .csv 檔案。',
+    sidecarMissing:
+      '缺少活頁簿引擎(xlsx-sidecar)——請安裝 Rust(https://rustup.rs)後重新執行 npm run web。',
+    sidecarMissingTitle: '缺少活頁簿引擎',
+    sidecarMissingDetail:
+      '此 Suite 版本未包含以 Rust 編譯的活頁簿引擎,因此 Sheets 無法開啟或新增活頁簿。請安裝 Rust(https://rustup.rs),然後重新執行 npm run web——引擎會自動建置。Suite 的其他功能不受影響。',
   },
 })
 const tm = (key: Parameters<typeof tMain>[1], params?: Parameters<typeof tMain>[2]) =>
@@ -1859,7 +1959,7 @@ const sidecarOpenResultSchema = workbookFileSchema.omit({
 export async function createSheetsWindow(
   options: { includeAiHandlers?: boolean } = {},
 ): Promise<BrowserWindow> {
-  const client = sidecar ?? new XlsxSidecarClient(resolveSidecarPath())
+  const client = sidecar ?? newSidecarClient()
   sidecar = client
   client.start()
   const window = new BrowserWindow({
@@ -1891,7 +1991,10 @@ export async function createSheetsWindow(
       process.stderr.write(`[renderer:${details.level}] ${details.message}\n`)
     })
   }
-  window.once('ready-to-show', () => window.show())
+  window.once('ready-to-show', () => {
+    window.show()
+    noticeMissingSidecar(window)
+  })
   window.on('close', (event) => {
     if (sheetsPendingEditCount(window.webContents.id) === 0) return
     event.preventDefault()
@@ -1938,7 +2041,7 @@ export async function exportSheetsPdfHeadless(
   outPath: string,
   timeoutMs = 600_000,
 ): Promise<void> {
-  const client = sidecar ?? new XlsxSidecarClient(resolveSidecarPath())
+  const client = sidecar ?? newSidecarClient()
   sidecar = client
   client.start()
   const win = new BrowserWindow({
@@ -1984,7 +2087,7 @@ export async function exportSheetsPdfHeadless(
 
 /** tab-mode equivalent of createSheetsWindow: same runtime/IPC wiring, no BrowserWindow of its own. */
 export function createSheetsView(options: { includeAiHandlers?: boolean } = {}): WebContentsView {
-  const client = sidecar ?? new XlsxSidecarClient(resolveSidecarPath())
+  const client = sidecar ?? newSidecarClient()
   sidecar = client
   client.start()
   const view = new WebContentsView({
@@ -2008,6 +2111,7 @@ export function createSheetsView(options: { includeAiHandlers?: boolean } = {}):
   }
   // mode=tab: the shell's tab strip owns the traffic lights / caption buttons,
   // so the ribbon must not reserve space for them
+  view.webContents.once('did-finish-load', () => noticeMissingSidecar())
   void view.webContents.loadURL(rendererUrl(runtime.rendererUrl, 'sheets', { mode: 'tab' }))
   return view
 }
@@ -4078,6 +4182,35 @@ export function startSheetsStandalone(): void {
   app.on('activate', () => {
     if (!mainWindow) void createSheetsWindow()
   })
+}
+
+function newSidecarClient(): XlsxSidecarClient {
+  return new XlsxSidecarClient(resolveSidecarPath(), {
+    missingMessage: () => tm('sidecarMissing'),
+  })
+}
+
+let sidecarNoticeShown = false
+
+/**
+ * A source build without Rust has no sidecar: every workbook open would fail
+ * with a status-bar error nobody connects to Rust. Say it once, plainly,
+ * when Sheets first shows up (installers always ship the binary).
+ */
+function noticeMissingSidecar(owner?: BrowserWindow | null): void {
+  if (sidecarNoticeShown || app.isPackaged || existsSync(resolveSidecarPath())) return
+  sidecarNoticeShown = true
+  const win = owner ?? BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0]
+  const options = {
+    type: 'warning' as const,
+    title: tm('sidecarMissingTitle'),
+    message: tm('sidecarMissingTitle'),
+    detail: tm('sidecarMissingDetail'),
+    buttons: ['OK'],
+  }
+  void (win ? dialog.showMessageBox(win, options) : dialog.showMessageBox(options)).catch(
+    () => undefined,
+  )
 }
 
 function resolveSidecarPath(): string {

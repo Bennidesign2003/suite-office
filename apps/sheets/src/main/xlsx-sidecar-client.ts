@@ -1,4 +1,5 @@
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process'
+import { existsSync } from 'node:fs'
 import { createInterface, type Interface } from 'node:readline'
 
 const PROTOCOL_VERSION = 1
@@ -31,13 +32,50 @@ interface SidecarResponse {
   }
 }
 
+/**
+ * The sidecar binary does not exist: a source checkout built without Rust
+ * (see apps/sheets/scripts/native-build.mjs). Its message is meant for the
+ * user, so it replaces spawn's bare "ENOENT".
+ */
+export class SidecarMissingError extends Error {
+  readonly code = 'SIDECAR_MISSING'
+}
+
+export interface XlsxSidecarClientOptions {
+  /** user-facing text for a missing binary (localized by the caller) */
+  readonly missingMessage?: (binaryPath: string) => string
+}
+
+const defaultMissingMessage = (binaryPath: string): string =>
+  `Sheets' workbook engine is missing (${binaryPath}). Install Rust from https://rustup.rs ` +
+  'and start Suite again (npm run web) — the engine is then built automatically.'
+
 export class XlsxSidecarClient {
   private process: ChildProcessWithoutNullStreams | null = null
   private lines: Interface | null = null
   private readonly pending = new Map<string, PendingRequest>()
   private stderr = ''
 
-  constructor(private readonly binaryPath: string) {}
+  constructor(
+    private readonly binaryPath: string,
+    private readonly options: XlsxSidecarClientOptions = {},
+  ) {}
+
+  /**
+   * spawn reports a missing binary as a bare "spawn … ENOENT" (and a write to
+   * the dead process as EPIPE): when the file really is not there, say so.
+   * ENOENT for an existing file (e.g. a missing ELF interpreter) stays as is.
+   */
+  private explain(error: Error): Error {
+    const code = (error as NodeJS.ErrnoException).code
+    if ((code === 'ENOENT' || code === 'EPIPE') && !existsSync(this.binaryPath)) {
+      return new SidecarMissingError(
+        (this.options.missingMessage ?? defaultMissingMessage)(this.binaryPath),
+        { cause: error },
+      )
+    }
+    return error
+  }
 
   async open(path: string, locale = 'zh', shortDateFormat?: string): Promise<unknown> {
     return this.request({
@@ -228,7 +266,7 @@ export class XlsxSidecarClient {
         if (!pending) return
         clearTimeout(pending.timeout)
         this.pending.delete(requestId)
-        pending.reject(error)
+        pending.reject(this.explain(error))
       })
     })
   }
@@ -259,7 +297,7 @@ export class XlsxSidecarClient {
     })
     child.once('error', (error) => {
       this.process = null
-      this.rejectPending(error)
+      this.rejectPending(this.explain(error))
     })
     child.once('exit', (code, signal) => {
       this.process = null
