@@ -9,7 +9,6 @@ import { fileURLToPath } from 'node:url'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const repo = resolve(here, '..', '..')
-const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm'
 
 const required = [
   'apps/shell/out/main/index.js',
@@ -21,13 +20,34 @@ const required = [
 const missing = required.filter((p) => !existsSync(join(repo, p)))
 const force = process.argv.includes('--rebuild')
 
-function run(cmd, args) {
-  const result = spawnSync(cmd, args, {
-    cwd: repo,
-    stdio: 'inherit',
-    shell: process.platform === 'win32',
-  })
+function exitOnFailure(result) {
+  if (result.error) {
+    console.error(result.error.message)
+    process.exit(1)
+  }
   if (result.status !== 0) process.exit(result.status ?? 1)
+}
+
+/** a node script — never through a shell: cmd.exe splits "C:\Program Files\nodejs\node.exe" at the space */
+function runNode(script) {
+  exitOnFailure(spawnSync(process.execPath, [script], { cwd: repo, stdio: 'inherit' }))
+}
+
+/**
+ * npm itself. Started via `npm run web`, npm tells us where its CLI script is
+ * (npm_execpath), so it runs under this node without any shell. Otherwise
+ * Windows only has npm.cmd, which needs one (the arguments here have no spaces).
+ */
+function runNpm(args) {
+  const cli = process.env.npm_execpath
+  if (cli && /\.c?js$/i.test(cli) && existsSync(cli)) {
+    exitOnFailure(spawnSync(process.execPath, [cli, ...args], { cwd: repo, stdio: 'inherit' }))
+    return
+  }
+  const windows = process.platform === 'win32'
+  exitOnFailure(
+    spawnSync(windows ? 'npm.cmd' : 'npm', args, { cwd: repo, stdio: 'inherit', shell: windows }),
+  )
 }
 
 const fullBuild = force || missing.length > 0
@@ -37,7 +57,7 @@ if (fullBuild) {
       ? 'Suite wird neu gebaut …'
       : `Suite ist noch nicht (vollständig) gebaut – baue jetzt (${missing.length} Teile fehlen) …`,
   )
-  run(npm, ['run', 'build:all'])
+  runNpm(['run', 'build:all'])
 }
 
 // Sheets' xlsx engine is Rust and optional for the rest of Suite (see
@@ -47,7 +67,7 @@ const { findCargo, SIDECAR_BINARY } = await import('../sheets/scripts/native-bui
 if (!fullBuild && !existsSync(SIDECAR_BINARY)) {
   if (findCargo()) {
     console.log('Rust gefunden – baue jetzt das xlsx-Modul von Sheets …')
-    run(npm, ['run', 'native:build', '-w', '@genoffice/sheets'])
+    runNpm(['run', 'native:build', '-w', '@genoffice/sheets'])
   } else {
     console.warn(
       'Hinweis: Sheets kann ohne sein xlsx-Modul keine Arbeitsmappen öffnen. Dafür Rust ' +
@@ -55,7 +75,7 @@ if (!fullBuild && !existsSync(SIDECAR_BINARY)) {
     )
   }
 }
-run(process.execPath, [join(here, 'build.mjs')])
+runNode(join(here, 'build.mjs'))
 
 const server = spawnSync(process.execPath, [join(here, 'dist', 'server.cjs')], {
   cwd: repo,
