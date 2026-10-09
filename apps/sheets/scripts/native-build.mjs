@@ -7,7 +7,7 @@
 // it, and carry on. Packaging and CI stay strict (SUITE_REQUIRE_NATIVE=1, CI,
 // or --strict), where a Sheets without its engine must never ship.
 import { spawn, spawnSync } from 'node:child_process'
-import { existsSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -17,6 +17,36 @@ const sheets = resolve(here, '..')
 const crate = join(sheets, 'native', 'xlsx-engine')
 const exe = process.platform === 'win32' ? 'xlsx-sidecar.exe' : 'xlsx-sidecar'
 export const SIDECAR_BINARY = join(crate, 'target', 'release', exe)
+// a failed compile is remembered, so `npm run web` does not retry it on every
+// start (on a Mac without the Xcode tools each try pops the install dialog)
+const FAILED_MARKER = join(crate, 'target', '.suite-build-failed.json')
+
+export function cargoVersion(cargo) {
+  const out = spawnSync(cargo, ['--version'], { encoding: 'utf8' })
+  return out.status === 0 ? out.stdout.trim() : ''
+}
+
+/** the last failed build with this toolchain, or null (none, or Rust changed since) */
+export function lastFailure(cargo) {
+  try {
+    const failed = JSON.parse(readFileSync(FAILED_MARKER, 'utf8'))
+    return failed && failed.cargo === cargoVersion(cargo) ? failed : null
+  } catch {
+    return null
+  }
+}
+
+function rememberFailure(cargo, code) {
+  try {
+    mkdirSync(dirname(FAILED_MARKER), { recursive: true })
+    writeFileSync(
+      FAILED_MARKER,
+      JSON.stringify({ cargo: cargoVersion(cargo), code, at: new Date().toISOString() }),
+    )
+  } catch {
+    // best effort: without it the next start simply tries again
+  }
+}
 
 const truthy = (value) => !!value && !/^(0|false|no)$/i.test(value)
 const strict =
@@ -140,14 +170,18 @@ async function main() {
     )
   }
   const { code, tail } = await run(cargo)
-  if (code === 0) return
+  if (code === 0) {
+    rmSync(FAILED_MARKER, { force: true })
+    return
+  }
+  rememberFailure(cargo, code)
   const hint = diagnose(tail)
   giveUp(
     [
       `cargo build ist fehlgeschlagen (Exit-Code ${code}, Details oben).`,
       ...(hint ? ['', hint] : []),
       '',
-      'Nach dem Beheben: `npm run web` baut das Modul beim nächsten Start nach.',
+      'Nach dem Beheben: `npm run native:build -w @genoffice/sheets` (oder `npm run web:rebuild`).',
     ],
     code,
   )

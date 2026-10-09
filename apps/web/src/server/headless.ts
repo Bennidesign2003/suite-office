@@ -1,4 +1,5 @@
 import { existsSync, readdirSync } from 'node:fs'
+import { homedir } from 'node:os'
 import { delimiter, join } from 'node:path'
 import type { Browser, BrowserContext, CDPSession, Page } from 'playwright-core'
 
@@ -28,12 +29,19 @@ function candidatePaths(): string[] {
     }
   }
   if (process.platform === 'darwin') {
-    out.push(
-      '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
-      '/Applications/Chromium.app/Contents/MacOS/Chromium',
-      '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge',
-      '/Applications/Brave Browser.app/Contents/MacOS/Brave Browser',
-    )
+    // per-user installs (~/Applications) are common when the account is not an admin
+    for (const base of ['/Applications', join(homedir(), 'Applications')]) {
+      out.push(
+        join(base, 'Google Chrome.app/Contents/MacOS/Google Chrome'),
+        join(base, 'Chromium.app/Contents/MacOS/Chromium'),
+        join(base, 'Microsoft Edge.app/Contents/MacOS/Microsoft Edge'),
+        join(base, 'Brave Browser.app/Contents/MacOS/Brave Browser'),
+        join(base, 'Vivaldi.app/Contents/MacOS/Vivaldi'),
+        join(base, 'Arc.app/Contents/MacOS/Arc'),
+        join(base, 'Google Chrome Beta.app/Contents/MacOS/Google Chrome Beta'),
+        join(base, 'Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary'),
+      )
+    }
   } else if (process.platform === 'win32') {
     for (const base of [
       process.env['PROGRAMFILES'],

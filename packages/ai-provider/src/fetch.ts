@@ -54,6 +54,22 @@ function isBlockPage(response: Response): boolean {
   )
 }
 
+/**
+ * Nothing listening on this machine: the daemon is simply not running. That is
+ * an ordinary state (the UI says so), not a network problem worth a console
+ * warning, and Chromium's stack would be refused just the same.
+ */
+export function isLocalConnectionRefused(url: string, error: unknown): boolean {
+  const code = (error as { cause?: { code?: unknown } })?.cause?.code
+  if (code !== 'ECONNREFUSED') return false
+  try {
+    const host = new URL(url).hostname.replace(/^\[|\]$/g, '')
+    return host === 'localhost' || host === '::1' || host.startsWith('127.')
+  } catch {
+    return false
+  }
+}
+
 export async function aiFetch(url: string, rawInit: RequestInit): Promise<Response> {
   const init = withUserAgent(rawInit)
   const signal = init.signal as AbortSignal | null | undefined
@@ -61,7 +77,9 @@ export async function aiFetch(url: string, rawInit: RequestInit): Promise<Respon
   try {
     response = await fetch(url, init)
   } catch (primaryError) {
-    if (!rescueFetch || signal?.aborted) throw primaryError
+    if (!rescueFetch || signal?.aborted || isLocalConnectionRefused(url, primaryError)) {
+      throw primaryError
+    }
     console.warn('[ai-provider] fetch failed, retrying via rescue fetch:', String(primaryError))
     try {
       return await rescueFetch(url, init)

@@ -63,9 +63,16 @@ if (fullBuild) {
 // Sheets' xlsx engine is Rust and optional for the rest of Suite (see
 // apps/sheets/scripts/native-build.mjs). When Rust arrives after the first
 // build, build just the engine instead of asking for a full rebuild.
-const { findCargo, SIDECAR_BINARY } = await import('../sheets/scripts/native-build.mjs')
+const { findCargo, lastFailure, SIDECAR_BINARY } =
+  await import('../sheets/scripts/native-build.mjs')
 if (!fullBuild && !existsSync(SIDECAR_BINARY)) {
-  if (findCargo()) {
+  const cargo = findCargo()
+  if (cargo && lastFailure(cargo)) {
+    console.warn(
+      'Hinweis: Das xlsx-Modul von Sheets ließ sich beim letzten Versuch nicht bauen. ' +
+        'Erneut versuchen: npm run native:build -w @genoffice/sheets',
+    )
+  } else if (cargo) {
     console.log('Rust gefunden – baue jetzt das xlsx-Modul von Sheets …')
     runNpm(['run', 'native:build', '-w', '@genoffice/sheets'])
   } else {
