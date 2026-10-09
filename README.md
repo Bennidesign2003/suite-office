@@ -107,6 +107,17 @@ npm run typecheck        # TypeScript über das ganze Monorepo
 npm run dist:mac         # Paket bauen (dist:win / dist:linux analog)
 ```
 
+## Probleme beim Start
+
+| Meldung                                                                   | Ursache und Lösung                                                                                                                                      |
+| ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Der Befehl "C:\Program" ist entweder falsch geschrieben …` (Windows)     | Behoben: Suite startet `node.exe` jetzt ohne `cmd.exe`. Mit einem älteren Stand: `git pull`.                                                            |
+| `cargo: not found` / `cargo (Rust) wurde nicht gefunden`                  | Rust fehlt. Suite startet trotzdem, nur Sheets kann ohne Rust keine Arbeitsmappen öffnen — siehe [Voraussetzungen](#voraussetzungen).                   |
+| `linker link.exe not found` (Windows)                                     | Zu Rust fehlen die Visual Studio Build Tools mit „Desktopentwicklung mit C++“.                                                                          |
+| „Ollama ist nicht erreichbar“ (Startseite, Einstellungen)                 | `ollama serve` starten (oder die Ollama-App) und unter **Einstellungen → KI-Modell** auf „Aktualisieren“ klicken.                                       |
+| `Port belegt — läuft Suite schon?`                                        | Suite läuft schon in einem anderen Terminal, oder ein anderes Programm nutzt Port 4317: `SUITE_PORT=4400 npm run web` (Windows: `set SUITE_PORT=4400`). |
+| `SUID sandbox helper … not configured correctly` (Ubuntu 24.04, Electron) | Behoben: `npm run shell` startet dann automatisch mit `--no-sandbox`.                                                                                   |
+
 ## Im Browser (`npm run web`)
 
 Der Web-Modus braucht keinen eigenen Code-Zweig der Editoren: ein Node-Server

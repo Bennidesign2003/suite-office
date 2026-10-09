@@ -32,7 +32,7 @@
     "dev:docs": "npm run dev -w @genoffice/docs",
     "build": "npm run build -w @genoffice/docs",
     "build:all": "npm run build -w @genoffice/docs && npm run build -w @genoffice/sheets && npm run build -w @genoffice/slides && npm run build -w @genoffice/pdf && npm run build -w @genoffice/markdown && npm run build -w @genoffice/html && npm run build -w @genoffice/mail && npm run build -w @genoffice/cli && npm run build -w @genoffice/shell",
-    "shell": "npm run build:all && electron apps/shell",
+    "shell": "npm run build:all && node tools/run-shell.mjs",
     "web": "node apps/web/start.mjs",
     "web:rebuild": "node apps/web/start.mjs --rebuild",
     "test:e2e": "playwright test --config e2e/playwright.config.ts",
