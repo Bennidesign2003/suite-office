@@ -85,6 +85,8 @@ import {
   type AiMediaProviderConfig,
   type AiSearchProviderId,
   resolveAiSettings,
+  AI_SETTINGS_CHANGED_CHANNEL,
+  effectiveAiSettings,
   maxOutputTokensOf,
   setAiUserAgent,
   setRescueFetch,
@@ -2864,11 +2866,14 @@ const activeAiStreams = new Map<string, AbortController>()
  * register them exactly once for all window types (docs, sheets, home) —
  * sheets' standalone AI handlers use the same channel names.
  */
+/** the saved settings, merged over the defaults */
+function storedAiSettings(): AiSettings {
+  const stored = readJson<Partial<AiSettings> & LegacyAiSettings>(SETTINGS_PATH(), {})
+  return resolveAiSettings(stored, defaultAiSettings())
+}
+
 export function registerAiIpc(): void {
-  ipcMain.handle('ai:get-settings', (): AiSettings => {
-    const stored = readJson<Partial<AiSettings> & LegacyAiSettings>(SETTINGS_PATH(), {})
-    return resolveAiSettings(stored, defaultAiSettings())
-  })
+  ipcMain.handle('ai:get-settings', (): AiSettings => storedAiSettings())
 
   // Which models the local daemon actually serves. The AI surfaces call this
   // to tell "no model picked yet" apart from "the daemon is not running",
@@ -2883,10 +2888,17 @@ export function registerAiIpc(): void {
 
   ipcMain.handle('ai:set-settings', (_event, settings: AiSettings) => {
     writeJson(SETTINGS_PATH(), settings)
+    // open tabs loaded their copy at startup; without this they keep asking
+    // with the old model (or none) until reloaded
+    const saved = storedAiSettings()
+    for (const wc of webContents.getAllWebContents()) {
+      if (!wc.isDestroyed()) wc.send(AI_SETTINGS_CHANGED_CHANNEL, saved)
+    }
   })
 
   ipcMain.handle('ai:stream', async (event, request: AiStreamRequest) => {
-    const { requestId, settings, system, messages } = request
+    const { requestId, system, messages } = request
+    const settings = effectiveAiSettings(request.settings, storedAiSettings)
     const tools = request.tools ?? []
     const maxTokens = request.maxTokens ?? maxOutputTokensOf(settings)
     const provider = settings.provider
@@ -3011,7 +3023,8 @@ export function registerAiIpc(): void {
   })
 
   ipcMain.handle('ai:chat', async (_event, request: AiChatRequest) => {
-    const { settings, system, user } = request
+    const { system, user } = request
+    const settings = effectiveAiSettings(request.settings, storedAiSettings)
     const provider = settings.provider
     const config = settings.providers?.[provider]
     if (!config?.model) return { ok: false, error: tm('errNoModel') }

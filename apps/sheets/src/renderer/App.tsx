@@ -1444,6 +1444,8 @@ export function App(): React.JSX.Element {
 
   useEffect(() => {
     void window.desktopApi.getAiSettings().then(setAiSettingsState)
+    // a model picked in Settings after this tab opened
+    return window.desktopApi.onAiSettingsChanged?.(setAiSettingsState)
   }, [])
 
   useEffect(() => {

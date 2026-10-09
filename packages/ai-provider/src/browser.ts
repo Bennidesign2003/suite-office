@@ -19,6 +19,7 @@ export {
   DEFAULT_MAX_OUTPUT_TOKENS,
   MAX_MAX_OUTPUT_TOKENS,
   MIN_MAX_OUTPUT_TOKENS,
+  AI_SETTINGS_CHANGED_CHANNEL,
   clampMaxOutputTokens,
   defaultAiSettings,
 } from './providers'

@@ -26,6 +26,7 @@ import {
   shell,
   systemPreferences,
   WebContentsView,
+  webContents,
 } from 'electron'
 import type {
   IpcMainInvokeEvent,
@@ -67,6 +68,8 @@ import {
   installProxyDispatcher,
   maxOutputTokensOf,
   resolveAiSettings,
+  AI_SETTINGS_CHANGED_CHANNEL,
+  effectiveAiSettings,
   setAiUserAgent,
   setRescueFetch,
   streamForProvider,
@@ -3270,10 +3273,15 @@ export function registerSheetsAiIpc(): void {
   setRescueFetch((url, init) => net.fetch(url, init))
   setAiUserAgent(`GenOffice/${app.getVersion()}`)
 
+  const storedAiSettings = (): AiSettings =>
+    resolveAiSettings(
+      readJson<Partial<AiSettings> & LegacyAiSettings>(SETTINGS_PATH(), {}),
+      defaultAiSettings(),
+    )
+
   ipcMain.handle(IPC_CHANNELS.aiGetSettings, (event): AiSettings => {
     sessionFor(event)
-    const stored = readJson<Partial<AiSettings> & LegacyAiSettings>(SETTINGS_PATH(), {})
-    return resolveAiSettings(stored, defaultAiSettings())
+    return storedAiSettings()
   })
 
   // Which models the local daemon actually serves. The AI surfaces call this
@@ -3291,13 +3299,19 @@ export function registerSheetsAiIpc(): void {
     sessionFor(event)
     const settings = aiSettingsInputSchema.parse(input)
     writeJson(SETTINGS_PATH(), settings)
+    // windows loaded their copy at startup: hand them the new one
+    const saved = storedAiSettings()
+    for (const wc of webContents.getAllWebContents()) {
+      if (!wc.isDestroyed()) wc.send(AI_SETTINGS_CHANGED_CHANNEL, saved)
+    }
   })
 
   ipcMain.handle(IPC_CHANNELS.aiChat, async (event, input: unknown) => {
     sessionFor(event)
     const request = aiChatRequestSchema.parse(input)
-    const provider = request.settings.provider as AiProviderId
-    const config = request.settings.providers[provider]
+    const settings = effectiveAiSettings(request.settings as AiSettings, storedAiSettings)
+    const provider = settings.provider as AiProviderId
+    const config = settings.providers[provider]
     if (!config?.model) return { ok: false, error: tm('errNoModel') }
     try {
       const result = await chatForProvider(provider, config, request.system, request.user)
@@ -3317,9 +3331,10 @@ export function registerSheetsAiIpc(): void {
     const request = aiStreamRequestSchema.parse(input)
     const { requestId, system, messages } = request
     const tools = request.tools ?? []
-    const maxTokens = request.maxTokens ?? maxOutputTokensOf(request.settings)
-    const provider = request.settings.provider as AiProviderId
-    const config = request.settings.providers[provider]
+    const settings = effectiveAiSettings(request.settings as AiSettings, storedAiSettings)
+    const maxTokens = request.maxTokens ?? maxOutputTokensOf(settings)
+    const provider = settings.provider as AiProviderId
+    const config = settings.providers[provider]
     const send = (chunk: AiStreamChunk) => {
       if (!event.sender.isDestroyed()) event.sender.send(IPC_CHANNELS.aiStreamChunk, chunk)
     }
