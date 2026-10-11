@@ -104,6 +104,18 @@ async function main(): Promise<void> {
   })
 
   installElectronShim()
+  // Node 25+ defines a localStorage getter that warns on every read without
+  // --localstorage-file; bundled browser-flavoured deps feature-test it, which
+  // printed a confusing warning on each start. Nothing here needs Web Storage.
+  for (const name of ['localStorage', 'sessionStorage']) {
+    if (Object.getOwnPropertyDescriptor(globalThis, name)?.configurable) {
+      Object.defineProperty(globalThis, name, {
+        value: undefined,
+        configurable: true,
+        writable: true,
+      })
+    }
+  }
   // the shell registers its handlers and app.whenReady() continuation on load;
   // it is CommonJS built output, loaded through the patched resolver above
   Module.createRequire(__filename)(shellMain)

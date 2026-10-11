@@ -4794,8 +4794,16 @@ app.whenReady().then(async () => {
       const oldPid = Number(readFileSync(devPidFile(), 'utf-8').trim())
       if (Number.isFinite(oldPid) && oldPid > 0 && oldPid !== process.pid) {
         // pid-recycling guard: only kill if that pid is still an Electron process
-        const cmd = execSync(`ps -o command= -p ${oldPid}`).toString()
-        if (cmd.includes('Electron')) process.kill(oldPid, 'SIGKILL')
+        // (Windows has no ps: tasklist names the image, electron.exe)
+        const cmd =
+          process.platform === 'win32'
+            ? execSync(`tasklist /FI "PID eq ${oldPid}" /FO CSV /NH`, {
+                stdio: ['ignore', 'pipe', 'ignore'],
+              }).toString()
+            : execSync(`ps -o command= -p ${oldPid}`, {
+                stdio: ['ignore', 'pipe', 'ignore'],
+              }).toString()
+        if (/electron/i.test(cmd)) process.kill(oldPid, 'SIGKILL')
       }
     } catch {
       // no previous instance recorded / already gone (ps exits non-zero)

@@ -61,6 +61,24 @@ anzubieten, das nicht funktionieren kann.
   ollama pull qwen3.5      # Tools + Vision + Thinking
   ```
 - **Node.js ≥ 22.12** und npm ≥ 10
+- **[Rust](https://rustup.rs) ≥ 1.88** für Sheets: das xlsx-Modul von Sheets (`apps/sheets/native/xlsx-engine`)
+  wird beim Bauen mit `cargo` kompiliert. Ohne Rust baut und startet Suite trotzdem — Docs,
+  Slides, PDF, Markdown, HTML und Mail funktionieren, nur Sheets kann dann keine Arbeitsmappen
+  öffnen (Suite sagt das beim Start von Sheets). Rust nachinstallieren und `npm run web` neu
+  starten: das Modul wird dann automatisch gebaut.
+
+  - **macOS:** `xcode-select --install`, dann
+    `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh`
+  - **Linux:** `sudo apt install build-essential curl` (Fedora: `sudo dnf install gcc curl`),
+    dann derselbe `curl … | sh`-Befehl
+  - **Windows:** `winget install Rustlang.Rustup` (oder `rustup-init.exe` von
+    [rustup.rs](https://rustup.rs)) und die
+    [Visual Studio Build Tools](https://visualstudio.microsoft.com/de/visual-cpp-build-tools/)
+    mit „Desktopentwicklung mit C++“
+
+  Danach ein **neues** Terminal öffnen (damit `cargo` im `PATH` ist). Der erste Build des Moduls
+  lädt die Rust-Bibliotheken und dauert einige Minuten. Rust aus der Linux-Paketverwaltung ist
+  oft zu alt — dann `rustup update` bzw. rustup statt `apt install rustc` verwenden.
 
 ## Loslegen
 
@@ -88,6 +106,17 @@ npm test                 # Unit-Tests aller Pakete
 npm run typecheck        # TypeScript über das ganze Monorepo
 npm run dist:mac         # Paket bauen (dist:win / dist:linux analog)
 ```
+
+## Probleme beim Start
+
+| Meldung                                                                   | Ursache und Lösung                                                                                                                                      |
+| ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Der Befehl "C:\Program" ist entweder falsch geschrieben …` (Windows)     | Behoben: Suite startet `node.exe` jetzt ohne `cmd.exe`. Mit einem älteren Stand: `git pull`.                                                            |
+| `cargo: not found` / `cargo (Rust) wurde nicht gefunden`                  | Rust fehlt. Suite startet trotzdem, nur Sheets kann ohne Rust keine Arbeitsmappen öffnen — siehe [Voraussetzungen](#voraussetzungen).                   |
+| `linker link.exe not found` (Windows)                                     | Zu Rust fehlen die Visual Studio Build Tools mit „Desktopentwicklung mit C++“.                                                                          |
+| „Ollama ist nicht erreichbar“ (Startseite, Einstellungen)                 | `ollama serve` starten (oder die Ollama-App) und unter **Einstellungen → KI-Modell** auf „Aktualisieren“ klicken.                                       |
+| `Port belegt — läuft Suite schon?`                                        | Suite läuft schon in einem anderen Terminal, oder ein anderes Programm nutzt Port 4317: `SUITE_PORT=4400 npm run web` (Windows: `set SUITE_PORT=4400`). |
+| `SUID sandbox helper … not configured correctly` (Ubuntu 24.04, Electron) | Behoben: `npm run shell` startet dann automatisch mit `--no-sandbox`.                                                                                   |
 
 ## Im Browser (`npm run web`)
 

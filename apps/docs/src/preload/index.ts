@@ -152,6 +152,12 @@ const api: DesktopApi = {
     return () => ipcRenderer.removeListener(VIEW_IMAGE_CHANNEL, listener)
   },
   getAiSettings: () => ipcRenderer.invoke('ai:get-settings'),
+  // AI_SETTINGS_CHANGED_CHANNEL in @genoffice/ai-provider
+  onAiSettingsChanged: (handler) => {
+    const listener = (_event: IpcRendererEvent, settings: AiSettings) => handler(settings)
+    ipcRenderer.on('ai:settings-changed', listener)
+    return () => ipcRenderer.removeListener('ai:settings-changed', listener)
+  },
   setAiSettings: (settings: AiSettings) => ipcRenderer.invoke('ai:set-settings', settings),
   aiChat: (request: AiChatRequest) => ipcRenderer.invoke('ai:chat', request),
   aiStream: (request: AiStreamRequest) => ipcRenderer.invoke('ai:stream', request),

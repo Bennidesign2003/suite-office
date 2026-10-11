@@ -371,7 +371,23 @@ function AiModelPane({ t }: { t: TFunc }) {
             value={config.model}
             ariaLabel={t('setAiModelId')}
             options={installed.map((m) => ({ value: m.name, label: modelDetail(m.name) }))}
-            onPick={(m) => updateConfig({ model: m })}
+            onPick={(m) => {
+              // the pick is the whole setup for most people: save it right
+              // away instead of relying on a Save click they may never make
+              const next = { ...settings, providers: { ollama: { ...config, model: m } } }
+              setSettings(next)
+              setTestResult(null)
+              window.aiOffice
+                .setAiSettings?.(next)
+                .then(() => {
+                  setDirty(false)
+                  setSaved(true)
+                })
+                .catch((error) => {
+                  setDirty(true)
+                  window.alert(error instanceof Error ? error.message : String(error))
+                })
+            }}
           />
         ) : (
           // a stopped daemon must not erase a model the user already picked

@@ -337,7 +337,12 @@ import {
 import { handleExportCsv as handleExportCsvImpl, type CsvExportContext } from './csv-export'
 import { effectivePageBreaks, installPageBreakPreview } from './page-break-preview'
 import { mapProtectedRanges } from './protected-ranges'
-import { handleSave as handleSaveImpl, type SaveContext, type SaveOutcome } from './save-actions'
+import {
+  handleSave as handleSaveImpl,
+  stripIpcErrorWrapper,
+  type SaveContext,
+  type SaveOutcome,
+} from './save-actions'
 import {
   applyChartEdit as applyChartEditImpl,
   applyShapeEdit as applyShapeEditImpl,
@@ -1439,6 +1444,8 @@ export function App(): React.JSX.Element {
 
   useEffect(() => {
     void window.desktopApi.getAiSettings().then(setAiSettingsState)
+    // a model picked in Settings after this tab opened
+    return window.desktopApi.onAiSettingsChanged?.(setAiSettingsState)
   }, [])
 
   useEffect(() => {
@@ -3954,7 +3961,7 @@ export function App(): React.JSX.Element {
       openLazyWorkbook(selected)
       setMessage(t('appOpened', { name: selected.name }))
     } catch (error: unknown) {
-      setMessage(error instanceof Error ? error.message : t('appOpenFailed'))
+      setMessage(error instanceof Error ? stripIpcErrorWrapper(error.message) : t('appOpenFailed'))
     } finally {
       workbookOpeningRef.current = false
     }

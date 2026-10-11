@@ -1,5 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { AI_DEFAULT_USER_AGENT, aiFetch, setAiUserAgent, setRescueFetch } from '../src/fetch'
+import {
+  AI_DEFAULT_USER_AGENT,
+  aiFetch,
+  isLocalConnectionRefused,
+  setAiUserAgent,
+  setRescueFetch,
+} from '../src/fetch'
 
 afterEach(() => {
   vi.unstubAllGlobals()
@@ -116,5 +122,31 @@ describe('aiFetch', () => {
     controller.abort()
     await expect(aiFetch('https://x/', { signal: controller.signal })).rejects.toThrow('aborted')
     expect(rescue).not.toHaveBeenCalled()
+  })
+
+  it('treats a refused local daemon as "not running": no warning, no rescue retry', async () => {
+    const refused = Object.assign(new TypeError('fetch failed'), {
+      cause: Object.assign(new Error('connect ECONNREFUSED 127.0.0.1:11434'), {
+        code: 'ECONNREFUSED',
+      }),
+    })
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(refused))
+    const rescue = vi.fn()
+    setRescueFetch(rescue)
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+    await expect(aiFetch('http://127.0.0.1:11434/api/tags', {})).rejects.toBe(refused)
+    expect(rescue).not.toHaveBeenCalled()
+    expect(warn).not.toHaveBeenCalled()
+    warn.mockRestore()
+  })
+
+  it('still rescues refused connections to remote hosts', () => {
+    const refused = { cause: { code: 'ECONNREFUSED' } }
+    expect(isLocalConnectionRefused('http://localhost:11434/x', refused)).toBe(true)
+    expect(isLocalConnectionRefused('http://[::1]:11434/x', refused)).toBe(true)
+    expect(isLocalConnectionRefused('http://gpu-box:11434/x', refused)).toBe(false)
+    expect(
+      isLocalConnectionRefused('http://127.0.0.1:11434/x', { cause: { code: 'ETIMEDOUT' } }),
+    ).toBe(false)
   })
 })

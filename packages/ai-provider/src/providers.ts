@@ -25,6 +25,27 @@ export const OLLAMA_PROVIDER_META: AiProviderMeta = {
 
 export const AI_PROVIDERS: AiProviderMeta[] = [OLLAMA_PROVIDER_META]
 
+/**
+ * Broadcast to every window after the settings were saved, with the resolved
+ * settings as payload: surfaces that read them once on load pick the change
+ * up without a reload.
+ */
+export const AI_SETTINGS_CHANGED_CHANNEL = 'ai:settings-changed'
+
+/**
+ * The settings a request runs with. Surfaces send the copy they loaded; one
+ * loaded before a model was picked (a tab opened first, the model chosen in
+ * Settings afterwards) still carries an empty model — then the saved settings
+ * win, instead of failing with "no model configured" until the tab reloads.
+ */
+export function effectiveAiSettings(
+  requested: AiSettings | undefined,
+  stored: () => AiSettings,
+): AiSettings {
+  if (requested?.providers?.ollama?.model?.trim()) return requested
+  return stored()
+}
+
 /** Fresh settings pointing at a stock local daemon with no model chosen yet. */
 export function defaultAiSettings(): AiSettings {
   return {

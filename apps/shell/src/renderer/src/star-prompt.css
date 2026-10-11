@@ -5,7 +5,9 @@
   position: fixed;
   right: 20px;
   bottom: 20px;
-  z-index: 60;
+  /* below the settings overlay (60) and home modals (100): it once covered
+     the settings dialog's Save button */
+  z-index: 50;
   width: 320px;
   padding: 16px 16px 14px;
   background: var(--surface);

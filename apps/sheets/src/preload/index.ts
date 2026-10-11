@@ -439,6 +439,14 @@ const desktopApi: DesktopApi = {
   replyRecoveryPrompt(restore) {
     ipcRenderer.send(IPC_CHANNELS.recoveryPromptReply, restore === true)
   },
+  // AI_SETTINGS_CHANGED_CHANNEL in @genoffice/ai-provider
+  onAiSettingsChanged(handler) {
+    const listener = (_event: Electron.IpcRendererEvent, settings: unknown) => {
+      if (isRecord(settings)) handler(settings as unknown as AiSettings)
+    }
+    ipcRenderer.on('ai:settings-changed', listener)
+    return () => ipcRenderer.removeListener('ai:settings-changed', listener)
+  },
   async getAiSettings() {
     const result: unknown = await ipcRenderer.invoke(IPC_CHANNELS.aiGetSettings)
     if (!isRecord(result)) throw new Error('Invalid AI settings response.')

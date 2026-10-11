@@ -1235,6 +1235,8 @@ export function App() {
   useEffect(() => {
     void window.desktop.getRecentFiles().then(setRecent)
     void window.desktop.getAiSettings().then(setSettings)
+    // a model picked in Settings after this tab opened
+    return window.desktop.onAiSettingsChanged?.(setSettings)
   }, [])
 
   useEffect(() => {
